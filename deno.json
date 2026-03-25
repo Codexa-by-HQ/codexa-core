@@ -2,6 +2,12 @@
 	"name": "@codexa/core",
 	"version": "0.1.0",
 	"license": "GPL-3.0-or-later",
+	"description": "Codexa Core - A modular toolkit for building scalable Deno applications.",
+	"author": "Codexa-by-HQ",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Codexa-by-HQ/codexa-core.git"
+	},
 	"exports": {
 		".": "./mod.ts",
 		"./http": "./src/lib/http/mod.ts",
