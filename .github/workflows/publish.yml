@@ -1,0 +1,32 @@
+name: Publish to JSR
+
+on:
+    push:
+        tags:
+            - 'v*'
+    # Allow manual trigger from GitHub Actions tab as well
+    workflow_dispatch:
+
+jobs:
+    publish:
+        name: Publish @codexa/core
+        runs-on: ubuntu-latest
+
+        permissions:
+            contents: read
+            id-token: write # Required for OIDC authentication with JSR (no secrets/tokens needed)
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Deno
+              uses: denoland/setup-deno@v2
+              with:
+                  deno-version: v2.x
+
+            - name: Check types
+              run: deno check mod.ts
+
+            - name: Publish to JSR
+              run: deno publish

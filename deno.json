@@ -1,0 +1,115 @@
+{
+	"name": "@codexa/core",
+	"version": "0.1.0",
+	"license": "GPL-3.0-or-later",
+	"exports": {
+		".": "./mod.ts",
+		"./http": "./src/lib/http/mod.ts",
+		"./bus": "./src/lib/bus/mod.ts",
+		"./store": "./src/lib/store/mod.ts",
+		"./cache": "./src/lib/cache/mod.ts",
+		"./storage": "./src/lib/storage/mod.ts",
+		"./config": "./src/config/mod.ts",
+		"./zod": "./src/utils/zod.ts",
+		"./logger": "./src/utils/logger.ts",
+		"./structures": "./src/structures/index.ts",
+		"./types": "./src/types/app.d.ts",
+		"./crypto": "./src/utils/crypto.ts",
+		"./hash": "./src/utils/hash.ts",
+		"./device": "./src/utils/device.ts",
+		"./ttl": "./src/utils/ttl.ts",
+		"./response": "./src/utils/response.ts",
+		"./query": "./src/utils/parseQueryParams.ts"
+	},
+	"publish": {
+		"include": [
+			"LICENSE",
+			"README.md",
+			"mod.ts",
+			"src/**/*.ts"
+		],
+		"exclude": [
+			"src/**/*.test.ts",
+			"src/**/*.spec.ts",
+			"env/**"
+		]
+	},
+	"tasks": {
+		"lint": "deno lint",
+		"lint:fix": "deno lint --fix",
+		"format": "deno fmt --watch",
+		"format:check": "deno fmt --check",
+		"check": "deno check mod.ts",
+		"dry-run": "deno publish --dry-run --allow-dirty",
+		"publish": "deno publish"
+	},
+	"imports": {
+		"@std/path": "jsr:@std/path@^1.0",
+		"@zod/zod": "jsr:@zod/zod@^4.3.6",
+		"@std/dotenv": "jsr:@std/dotenv@^0.225",
+		"@oak/oak": "jsr:@oak/oak@^17.2.0",
+		"ioredis": "npm:ioredis@^5.9.3",
+		"mongodb": "npm:mongodb@^7.1.0",
+		"qs": "npm:qs@^6.14.2",
+		"ua-parser-js": "npm:ua-parser-js@^2.0.3",
+		"@noble/hashes": "npm:@noble/hashes@2.0.1"
+	},
+	"lint": {
+		"include": [
+			"./"
+		],
+		"exclude": [
+			"./tests/",
+			"./fixtures/**/*.ts",
+			"node_modules/",
+			"dist/",
+			"build/"
+		],
+		"rules": {
+			"tags": [
+				"recommended"
+			],
+			"include": [
+				"ban-untagged-todo",
+				"no-explicit-any",
+				"no-non-null-assertion",
+				"prefer-as-const",
+				"no-unsafe-finally",
+				"ban-untagged-ignore",
+				"eqeqeq",
+				"camelcase",
+				"no-eval"
+			],
+			"exclude": [
+				"no-unused-vars",
+				"no-console",
+				"require-await"
+			]
+		}
+	},
+	"fmt": {
+		"useTabs": true,
+		"lineWidth": 80,
+		"indentWidth": 4,
+		"semiColons": true,
+		"singleQuote": true,
+		"proseWrap": "preserve",
+		"include": [
+			"./"
+		],
+		"exclude": [
+			"tests/",
+			"fixtures/**/*.ts",
+			"node_modules/",
+			"dist/",
+			"build/"
+		]
+	},
+	"compilerOptions": {
+		"lib": [
+			"deno.window",
+			"deno.unstable"
+		],
+		"strict": true
+	}
+}
