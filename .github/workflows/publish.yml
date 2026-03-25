@@ -23,10 +23,10 @@ jobs:
             - name: Setup Deno
               uses: denoland/setup-deno@v2
               with:
-                  deno-version: v2.x
+                  deno-version: '2.7.1'
 
             - name: Check types
-              run: deno check mod.ts
+              run: deno check --no-lock mod.ts
 
             - name: Publish to JSR
-              run: deno publish
+              run: deno publish --allow-dirty
