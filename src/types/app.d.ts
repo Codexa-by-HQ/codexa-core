@@ -1,4 +1,10 @@
-import { Empty, SafeProvide } from './global.d.ts';
+/**
+ * Shared type definitions for @codexa/core.
+ *
+ * These types are imported by internal modules. They are NOT re-exported
+ * as a separate subpath — consumers get them via the module that uses them
+ * (e.g. `import type { Logger } from '@codexa/core/logger'`).
+ */
 
 // ── Logger ────────────────────────────────────────────────────────────────────
 
@@ -31,9 +37,30 @@ export interface LogEntry {
 
 // ── Device / Platform / OS ────────────────────────────────────────────────────
 
-export type DeviceType = 'desktop' | 'mobile' | 'tablet' | 'tv' | 'iot' | 'cli' | 'unknown';
-export type DevicePlatform = 'web' | 'ios' | 'android' | 'macos' | 'windows' | 'linux' | 'api';
-export type OS = 'windows' | 'macos' | 'linux' | 'ios' | 'android' | 'chromeos' | 'unknown';
+export type DeviceType =
+	| 'desktop'
+	| 'mobile'
+	| 'tablet'
+	| 'tv'
+	| 'iot'
+	| 'cli'
+	| 'unknown';
+export type DevicePlatform =
+	| 'web'
+	| 'ios'
+	| 'android'
+	| 'macos'
+	| 'windows'
+	| 'linux'
+	| 'api';
+export type OS =
+	| 'windows'
+	| 'macos'
+	| 'linux'
+	| 'ios'
+	| 'android'
+	| 'chromeos'
+	| 'unknown';
 
 export interface DeviceInfo {
 	browser: string;
@@ -49,72 +76,6 @@ export interface DeviceInfo {
 
 export type HashAlgorithm = 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
 export type HmacAlgorithm = 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
-
-// ── Environment ───────────────────────────────────────────────────────────────
-
-export type EnvType = 'development' | 'production' | 'staging' | 'test';
-export type LogLevel = LogLevelT;
-export type StoreMode = 'redis' | 'kv' | 'memory';
-export type StorageProviderType = 's3' | 'cloudinary' | 'imagekit' | 'local';
-
-/** Validated environment config shape for @codexa/core. */
-export interface EnvConfig {
-	NODE_ENV: EnvType;
-	PORT: number;
-	SERVER_HOSTNAME: string;
-	LOG_LEVEL: LogLevelT;
-	LOG_DIR: string;
-	LOG_FILE_ENABLED: boolean;
-	LOG_MAX_FILE_SIZE: number;
-	LOG_MAX_FILES: number;
-	CACHE_TTL: number;
-	CACHE_PREFIX: string;
-	STORE_MODE: StoreMode;
-	STORE_FALLBACK_TO_MEMORY: boolean;
-	REDIS_URL?: string;
-	REDIS_HOST: string;
-	REDIS_PORT: number;
-	REDIS_PASSWORD?: string;
-	REDIS_DB: number;
-	REDIS_KEY_PREFIX: string;
-	DENO_KV_PATH?: string;
-	DENO_KV_PREFIX: string;
-	STORAGE_PROVIDER: StorageProviderType;
-	S3_BUCKET?: string;
-	S3_REGION?: string;
-	S3_ACCESS_KEY?: string;
-	S3_SECRET_KEY?: string;
-	S3_ENDPOINT?: string;
-	S3_CDN_BASE_URL?: string;
-	CLOUDINARY_CLOUD_NAME?: string;
-	CLOUDINARY_API_KEY?: string;
-	CLOUDINARY_API_SECRET?: string;
-	IMAGEKIT_PUBLIC_KEY?: string;
-	IMAGEKIT_PRIVATE_KEY?: string;
-	IMAGEKIT_URL_ENDPOINT?: string;
-	LOCAL_STORAGE_DIR: string;
-	LOCAL_BASE_URL?: string;
-	[key: string]: unknown;
-}
-
-// ── Database / Model ──────────────────────────────────────────────────────────
-
-export interface SystemFields {
-	isActive: boolean;
-	createdAt: Date;
-	updatedAt: Date;
-	createdBy?: unknown;
-	updatedBy?: unknown;
-}
-
-// ── Pagination ────────────────────────────────────────────────────────────────
-
-export interface PaginationInput {
-	page: number;
-	limit: number;
-	sort: string;
-	order: 'asc' | 'desc';
-}
 
 // ── Event Bus ─────────────────────────────────────────────────────────────────
 
@@ -133,19 +94,26 @@ export type HandlerOptions = {
 };
 
 export interface IEventBus {
-	/**
-	 * Initialise the event bus.
-	 * @param opts.redisClient - Optional pre-connected Redis client for distributed pub/sub.
-	 * @param opts.subscribeChannels - Redis channels to subscribe to on startup.
-	 */
 	initialize(opts: {
 		// deno-lint-ignore no-explicit-any
 		redisClient?: any;
 		subscribeChannels?: string[];
 	}): Promise<void>;
-	on<T = unknown>(channel: string, event: string, handler: EventHandler<T>): void;
-	once<T = unknown>(channel: string, event: string, handler: EventHandler<T>): void;
-	off(channel?: string, event?: string, specificHandler?: EventHandler): void;
+	on<T = unknown>(
+		channel: string,
+		event: string,
+		handler: EventHandler<T>,
+	): void;
+	once<T = unknown>(
+		channel: string,
+		event: string,
+		handler: EventHandler<T>,
+	): void;
+	off(
+		channel?: string,
+		event?: string,
+		specificHandler?: EventHandler,
+	): void;
 	emit<T = unknown>(
 		channel: string,
 		event: string,
@@ -159,6 +127,7 @@ export interface IEventBus {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 
+export type StoreMode = 'redis' | 'kv' | 'memory';
 export type StoreType = StoreMode;
 
 export interface StoreSetOptions {
@@ -168,34 +137,21 @@ export interface StoreSetOptions {
 	ex?: number;
 }
 
-/**
- * Configuration for {@link initializeStore}.
- * Pass explicit connections rather than relying on environment variables.
- */
 export interface StoreConfig {
-	/**
-	 * Backing store to use.
-	 *   - `redis`  — requires `redisClient`
-	 *   - `kv`     — uses Deno.openKv; optionally set `kvPath` and `kvPrefix`
-	 *   - `memory` — in-process Map (default)
-	 */
 	mode?: StoreType;
-	/** Fall back to in-memory when the chosen backend fails (default: true). */
 	fallbackToMemory?: boolean;
-	/**
-	 * Pre-connected Redis client (required when `mode === 'redis'`).
-	 * Obtain one from `createRedisConnection(...).connect()`.
-	 */
 	// deno-lint-ignore no-explicit-any
 	redisClient?: any;
-	/** Filesystem path for Deno KV. Omit for Deno Deploy managed KV. */
 	kvPath?: string;
-	/** Key prefix for Deno KV entries (default: 'store'). */
 	kvPrefix?: string;
 }
 
 export interface IStore {
-	set(key: string, value: unknown, options?: StoreSetOptions): Promise<string>;
+	set(
+		key: string,
+		value: unknown,
+		options?: StoreSetOptions,
+	): Promise<string>;
 	get<T = unknown>(key: string): Promise<T | null>;
 	del(...keys: string[]): Promise<number>;
 	exists(...keys: string[]): Promise<number>;
@@ -219,6 +175,7 @@ export interface StoreStats {
 
 // ── Storage ───────────────────────────────────────────────────────────────────
 
+export type StorageProviderType = 's3' | 'cloudinary' | 'imagekit' | 'local';
 export type AssetType = 'image' | 'video' | 'document' | 'raw';
 
 export interface StorageConfig {
@@ -265,8 +222,12 @@ export interface TransformationOptions {
 		| 'auto'
 		| string;
 	quality?: number | 'auto';
-	cloudinaryOpts?: Record<string, unknown> | Array<Record<string, unknown>>;
-	imagekitOpts?: Record<string, unknown> | Array<Record<string, unknown>>;
+	cloudinaryOpts?:
+		| Record<string, unknown>
+		| Array<Record<string, unknown>>;
+	imagekitOpts?:
+		| Record<string, unknown>
+		| Array<Record<string, unknown>>;
 }
 
 export interface UploadOptions {
@@ -311,7 +272,10 @@ export interface StorageProvider {
 		expiresIn?: number,
 		transformation?: TransformationOptions,
 	): Promise<string>;
-	getTransformedUrl?(key: string, transformations: TransformationOptions): string;
+	getTransformedUrl?(
+		key: string,
+		transformations: TransformationOptions,
+	): string;
 }
 
 // ── HTTP / API ────────────────────────────────────────────────────────────────
@@ -355,6 +319,3 @@ export interface RequestMetrics {
 	ip: string;
 	contentLength: number;
 }
-
-// Re-export global types for downstream use
-export type { Empty, SafeProvide };

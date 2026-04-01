@@ -27,14 +27,18 @@ export function generateId(): string {
 	return crypto.randomUUID();
 }
 
-/** Generate secure random bytes as a hex string. */
+/** Generate secure random bytes as a hex string. output=> "a3f91c7b"
+ * Each byte = 2 hex characters
+ */
 export function randomBytes(length: number): string {
 	const bytes = new Uint8Array(length);
 	crypto.getRandomValues(bytes);
 	return bytesToHex(bytes);
 }
 
-/** Generate secure random bytes as a raw Uint8Array. */
+/** Generate secure random bytes as a raw Uint8Array. output=> Uint8Array [163, 249, 28, 123]
+ * 
+*/
 export function randomBytesRaw(length: number): Uint8Array {
 	const bytes = new Uint8Array(length);
 	crypto.getRandomValues(bytes);
@@ -173,7 +177,7 @@ export async function verifyPassword(
 	stored: string,
 ): Promise<boolean> {
 	try {
-		const [, iterStr, saltHex, hashHex] = stored.split('$');
+		const [_, iterStr, saltHex, hashHex] = stored.split('$');
 		const iterations = parseInt(iterStr, 10);
 		const saltBytes = Uint8Array.from(
 			(saltHex.match(/.{2}/g) ?? []).map((b) => parseInt(b, 16)),

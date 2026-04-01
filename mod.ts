@@ -7,8 +7,8 @@
  * Prefer subpath imports for tree-shaking:
  * ```ts
  * import { createLogger }         from '@codexa/core/logger';
- * import { z }                    from '@codexa/core/zod';
- * import { CodexaHttp }           from '@codexa/core/http';
+ * import { zod }                  from '@codexa/core/zod';
+ * import { CodexaHttp, Router }   from '@codexa/core/http';
  * import { eventBus }             from '@codexa/core/bus';
  * import { initializeStore }      from '@codexa/core/store';
  * import { createCache }          from '@codexa/core/cache';
@@ -32,9 +32,6 @@ export * from './src/utils/device.ts';
 export * from './src/utils/ttl.ts';
 export * from './src/utils/response.ts';
 export * from './src/utils/parseQueryParams.ts';
-
-// ── Schemas / Structures ──────────────────────────────────────────────────────
-export * from './src/structures/index.ts';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 export * from './src/config/mod.ts';

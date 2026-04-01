@@ -5,23 +5,51 @@
  *
  * @example
  * ```ts
- * import { env, createMongoDatabase, createRedisConnection, buildStorageConfig } from '@codexa/core/config';
+ * import {
+ *   env,
+ *   createMongoDatabase,
+ *   createRedisConnection,
+ *   buildStorageConfig,
+ * } from '@codexa/core/config';
  *
- * await env.loadEnv();
+ * // Load env with custom schema
+ * import { zod } from '@codexa/core/zod';
+ * await env.loadEnv({
+ *   paths: ['.env', '.env.local'],
+ *   schema: zod.object({
+ *     PORT: zod.coerce.number().default(8080),
+ *     DATABASE_URL: zod.string(),
+ *     REDIS_URL: zod.string().optional(),
+ *   }),
+ * });
  *
- * const db = createMongoDatabase(env.get('MONGODB_URI'), 'myapp');
+ * // MongoDB
+ * const db = createMongoDatabase(env.get('DATABASE_URL'), 'myapp');
  * await db.connect();
  *
- * const redis = createRedisConnection({ url: env.get('REDIS_URL') });
+ * // Redis (with pub/sub)
+ * const redis = createRedisConnection({
+ *   url: env.get('REDIS_URL'),
+ *   enablePubSub: true,
+ * });
  * await redis.connect();
  *
+ * // Storage
  * const storage = buildStorageConfig(Deno.env.toObject());
  * ```
  */
 
 export { env, Environment } from './env.ts';
+export type { LoadEnvOptions } from './env.ts';
 export { createMongoDatabase } from './database.ts';
+export type {
+	MongoDatabaseConnection,
+	MongoDatabaseOptions,
+} from './database.ts';
 export { createRedisConnection } from './redis.ts';
+export type {
+	RedisClient,
+	RedisConnection,
+	RedisConnectionConfig,
+} from './redis.ts';
 export { buildStorageConfig } from './storage.ts';
-export type { MongoDatabaseOptions, MongoDatabaseConnection } from './database.ts';
-export type { RedisConnectionConfig, RedisConnection, RedisClient } from './redis.ts';

@@ -1,80 +1,97 @@
 {
+	"workspace": ["./codexa_core_testing"],
 	"name": "@codexa/core",
 	"version": "0.0.3",
 	"license": "GPL-3.0-or-later",
-	"description": "Codexa Core - A modular toolkit for building scalable Deno applications.",
+	"description": "Enterprise-grade modular toolkit for Deno — HTTP framework, event bus, store, cache, type-safe env, MongoDB, Redis, and more.",
 	"author": "Codexa-by-HQ",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/Codexa-by-HQ/codexa-core.git"
 	},
+	"keywords": [
+		"deno",
+		"framework",
+		"backend",
+		"api",
+		"http",
+		"oak",
+		"middleware",
+		"mongodb",
+		"redis",
+		"cache",
+		"event-bus",
+		"pubsub",
+		"store",
+		"zod",
+		"env",
+		"modular",
+		"enterprise",
+		"codexa",
+		"typescript"
+	],
 	"exports": {
-		".": "./mod.ts",
-		"./http": "./src/lib/http/mod.ts",
-		"./bus": "./src/lib/bus/mod.ts",
-		"./store": "./src/lib/store/mod.ts",
-		"./cache": "./src/lib/cache/mod.ts",
-		"./storage": "./src/lib/storage/mod.ts",
-		"./config": "./src/config/mod.ts",
-		"./zod": "./src/utils/zod.ts",
-		"./logger": "./src/utils/logger.ts",
-		"./structures": "./src/structures/index.ts",
-		"./types": "./src/types/app.d.ts",
-		"./crypto": "./src/utils/crypto.ts",
-		"./hash": "./src/utils/hash.ts",
-		"./device": "./src/utils/device.ts",
-		"./ttl": "./src/utils/ttl.ts",
+		".":          "./mod.ts",
+		"./http":     "./src/lib/http/mod.ts",
+		"./config":   "./src/config/mod.ts",
+		"./bus":      "./src/lib/bus/mod.ts",
+		"./store":    "./src/lib/store/mod.ts",
+		"./cache":    "./src/lib/cache/mod.ts",
+		"./storage":  "./src/lib/storage/mod.ts",
+		"./logger":   "./src/utils/logger.ts",
+		"./zod":      "./src/utils/zod.ts",
+		"./crypto":   "./src/utils/crypto.ts",
+		"./hash":     "./src/utils/hash.ts",
+		"./device":   "./src/utils/device.ts",
+		"./ttl":      "./src/utils/ttl.ts",
 		"./response": "./src/utils/response.ts",
-		"./query": "./src/utils/parseQueryParams.ts"
+		"./query":    "./src/utils/parseQueryParams.ts"
 	},
 	"publish": {
 		"include": [
 			"LICENSE",
 			"README.md",
 			"mod.ts",
-			"src/**/*.ts"
+			"src/**/*.ts",
+			"deno.json"
 		],
 		"exclude": [
 			"src/**/*.test.ts",
 			"src/**/*.spec.ts",
-			"env/**"
+			"tests/",
+			"codexa_core_testing/"
 		]
 	},
 	"tasks": {
-		"lint": "deno lint",
-		"lint:fix": "deno lint --fix",
-		"format": "deno fmt --watch",
-		"format:check": "deno fmt --check",
-		"check": "deno check mod.ts",
-		"dry-run": "deno publish --dry-run --allow-dirty",
-		"publish": "deno publish"
+		"lint":          "deno lint",
+		"lint:fix":      "deno lint --fix",
+		"format":        "deno fmt --watch",
+		"format:check":  "deno fmt --check",
+		"check":         "deno check mod.ts",
+		"test":          "deno test --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
+		"dry-run":       "deno publish --dry-run --allow-dirty",
+		"publish":       "deno publish"
 	},
 	"imports": {
-		"@std/path": "jsr:@std/path@^1.0",
-		"@zod/zod": "jsr:@zod/zod@^4.3.6",
-		"@std/dotenv": "jsr:@std/dotenv@^0.225",
-		"@oak/oak": "jsr:@oak/oak@^17.2.0",
-		"ioredis": "npm:ioredis@^5.9.3",
-		"mongodb": "npm:mongodb@^7.1.0",
-		"qs": "npm:qs@^6.14.2",
-		"ua-parser-js": "npm:ua-parser-js@^2.0.3",
-		"@noble/hashes": "npm:@noble/hashes@2.0.1"
+		"@std/path":       "jsr:@std/path@^1.0",
+		"@zod/zod":        "jsr:@zod/zod@^4.3.6",
+		"@std/dotenv":     "jsr:@std/dotenv@^0.225",
+		"@oak/oak":        "jsr:@oak/oak@^17.2.0",
+		"ioredis":         "npm:ioredis@^5.9.3",
+		"mongodb":         "npm:mongodb@^7.1.0",
+		"qs":              "npm:qs@^6.14.2",
+		"ua-parser-js":    "npm:ua-parser-js@^2.0.3",
+		"@noble/hashes":   "npm:@noble/hashes@2.0.1"
 	},
 	"lint": {
-		"include": [
-			"./"
-		],
+		"include": ["./src/", "./mod.ts"],
 		"exclude": [
-			"./tests/",
-			"./fixtures/**/*.ts",
-			"node_modules/",
-			"dist/",
-			"build/"
+			"tests/",
+			"codexa_core_testing/",
+			"node_modules/"
 		],
 		"rules": {
-			"tags": [
-				"recommended"
-			],
+			"tags": ["recommended"],
 			"include": [
 				"ban-untagged-todo",
 				"no-explicit-any",
@@ -100,22 +117,11 @@
 		"semiColons": true,
 		"singleQuote": true,
 		"proseWrap": "preserve",
-		"include": [
-			"./"
-		],
-		"exclude": [
-			"tests/",
-			"fixtures/**/*.ts",
-			"node_modules/",
-			"dist/",
-			"build/"
-		]
+		"include": ["./src/", "./mod.ts"],
+		"exclude": ["tests/", "codexa_core_testing/", "node_modules/"]
 	},
 	"compilerOptions": {
-		"lib": [
-			"deno.window",
-			"deno.unstable"
-		],
+		"lib": ["deno.window", "deno.unstable"],
 		"strict": true
 	}
 }

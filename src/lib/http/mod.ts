@@ -1,29 +1,93 @@
 /**
  * @module @codexa/core/http
  *
- * HTTP utilities for Codexa applications.
- * Built on top of Oak.
+ * HTTP framework for Codexa applications.
+ * Built on top of Oak — no need to install `@oak/oak` separately.
  *
  * @example
  * ```ts
- * import { CodexaHttp } from '@codexa/core/http';
+ * import { CodexaHttp, Router, MiddlewarePriority } from '@codexa/core/http';
+ *
+ * const app = new CodexaHttp({ name: 'MyAPI' });
+ *
+ * const usersRouter = new Router();
+ * usersRouter.get('/', (ctx) => { ctx.response.body = { users: [] }; });
+ *
+ * app.router('/api/users', usersRouter);
+ * app.get('/health', (ctx) => { ctx.response.body = { status: 'ok' }; });
+ *
+ * await app.boot();
+ * await app.listen({ port: 8000 });
  * ```
  */
 
-import {
-	AppContext,
-	AppMiddleware,
-	AppNext,
-	Empty,
-	OakAppState,
-	SafeProvide,
-} from '../../types/global.d.ts';
 import { Application, Middleware, Router } from '@oak/oak';
+import type { Context, Next, RouteParams, RouterContext } from '@oak/oak';
+import type { DeviceInfo, RequestMetrics } from '../../types/app.d.ts';
 import { createLogger } from '../../utils/logger.ts';
 import { eventBus } from '../bus/mod.ts';
 import { sendInternalError, sendNotFound } from '../../utils/response.ts';
 import { generateId } from '../../utils/crypto.ts';
 import { formatDeviceShort } from '../../utils/device.ts';
+
+// Re-export Oak's Router so consumers don't need @oak/oak as a direct dependency.
+export { Router } from '@oak/oak';
+export type { Context, Next, RouteParams, RouterContext } from '@oak/oak';
+
+/**
+ * Plugins augment this interface to inject typed state into `ctx.state`.
+ *
+ * @example — in your plugin's declaration file:
+ * ```ts
+ * declare module '@codexa/core/http' {
+ *   interface PluginStateMap {
+ *     auth: { userId: string; role: string; permissions: string[] }
+ *   }
+ * }
+ * // Now ctx.state.auth.userId is fully typed
+ * ```
+ */
+// deno-lint-ignore no-empty-interface
+export interface PluginStateMap {}
+
+type PluginState = {
+	[K in keyof PluginStateMap]?: PluginStateMap[K];
+};
+
+export interface OakAppState extends PluginState {
+	requestId?: string;
+	startTime?: number;
+	device?: DeviceInfo;
+	metrics?: RequestMetrics;
+}
+
+export type SafeProvide = Omit<
+	Record<string, unknown>,
+	keyof OakAppState | keyof PluginStateMap
+>;
+export type Empty = Record<string, never>;
+
+/** Typed Oak context with optional state injection. */
+export type AppContext<S extends SafeProvide = Empty> = Context<
+	OakAppState & S
+>;
+export type AppNext = Next;
+export type AppMiddleware<
+	P extends SafeProvide = Empty,
+> = (
+	ctx: AppContext<P>,
+	next: AppNext,
+) => Promise<void> | void;
+
+/** Use when you need both `ctx.state.*` and `ctx.params.*`. */
+export type AppRouterContext<
+	R extends string,
+	S extends SafeProvide = Empty,
+> = RouterContext<
+	R,
+	RouteParams<R>,
+	OakAppState & S
+>;
 
 export type LifeCyclePhase =
 	| 'idle'
@@ -322,7 +386,7 @@ export interface IPluginScope {
 	 * Throws if plugin or service not found.
 	 *
 	 * @example
-	 * const policy = scope.getService<PolicyChecker>('orbit-auth', 'policyChecker');
+	 * const policy = scope.getService<PolicyChecker>('Codexa-auth', 'policyChecker');
 	 */
 	getService<T>(pluginName: string, serviceName: string): T;
 
@@ -348,9 +412,9 @@ export interface IPluginScope {
  * const db = context.db as Db;
  * const redis = context.redis as RedisClient;
  */
-export type OrbitPluginContext = Record<string, unknown>;
+export type CodexaPluginContext = Record<string, unknown>;
 
-export interface OrbitPlugin<Config = Record<string, unknown>> {
+export interface CodexaPlugin<Config = Record<string, unknown>> {
 	name: string;
 	version: string; /** exact version string */
 	metadata: PluginMetadata;
@@ -365,7 +429,7 @@ export interface OrbitPlugin<Config = Record<string, unknown>> {
 	 */
 	install(
 		scope: IPluginScope,
-		context: OrbitPluginContext,
+		context: CodexaPluginContext,
 		config?: Config,
 	): Promise<void> | void;
 
@@ -932,7 +996,7 @@ class VersionedScope implements IVersionedScope {
 
 /** Internal record for an installed plugin. */
 interface InstalledPlugin {
-	plugin: OrbitPlugin<Record<string, unknown>>;
+	plugin: CodexaPlugin<Record<string, unknown>>;
 	scope: PluginInstallScope;
 	status: 'installed' | 'initialized' | 'uninstalled';
 	installedAt: number;
@@ -987,7 +1051,7 @@ class PluginRegistry {
 	 * Check that every declared dependency is already installed.
 	 * O(d) where d = number of dependsOn entries (typically ≤5).
 	 */
-	validateDependencies(plugin: OrbitPlugin): void {
+	validateDependencies(plugin: CodexaPlugin): void {
 		for (const dep of plugin.dependsOn ?? []) {
 			if (!this.store.has(dep)) {
 				throw new Error(
@@ -1516,6 +1580,19 @@ class PluginVersionedScope implements IVersionedScope {
 	}
 }
 
+/**
+ * Options for creating a {@link CodexaHttp} instance.
+ */
+export interface CodexaHttpOptions {
+	/**
+	 * Application name. Used in log output and for isolation when running
+	 * multiple CodexaHttp instances.
+	 *
+	 * @default 'CodexaApp'
+	 */
+	name?: string;
+}
+
 export class CodexaHttp implements ICodexaHttp {
 	private readonly app: Application<OakAppState>;
 	private readonly entries: EntryRegistry;
@@ -1526,9 +1603,13 @@ export class CodexaHttp implements ICodexaHttp {
 	private readonly _methodRouter: Router;
 	private _methodRouterRegistered: boolean = false;
 
+	/** Application name for logging and identification. */
+	public readonly name: string;
+
 	#committed: boolean = false;
 
-	constructor() {
+	constructor(options?: CodexaHttpOptions) {
+		this.name = options?.name ?? 'CodexaApp';
 		this.app = new Application<OakAppState>();
 		this.entries = new EntryRegistry();
 		this.versioned = new VersionedRegistry();
@@ -1541,9 +1622,10 @@ export class CodexaHttp implements ICodexaHttp {
 			const error = e.error instanceof Error
 				? e.error
 				: new Error(String(e.error ?? 'Unknown error'));
-			log.error('Uncaught Oak error:', { error });
+			log.error(`[${this.name}] Uncaught Oak error:`, { error });
 			eventBus.emit('oak', 'error', {
 				error,
+				app: this.name,
 				message: error.message,
 				stack: error.stack,
 			}, { distributed: false });
@@ -1767,7 +1849,10 @@ export class CodexaHttp implements ICodexaHttp {
 		}
 
 		/** Sentinel entry -> carries tags + enabled so tag control methods work on individual routes. The handler is intentionally a no-op pass through, the real dispatch happens inside the shared _methodRouter via the wrapper below. isSentinal:true tell the #commit() to skip flushing this to Oak. simply its a dummy entry use to control configurations of each route.*/
-		const sentinel: AppMiddleware = async (_ctx: AppContext, next: AppNext) => {
+		const sentinel: AppMiddleware = async (
+			_ctx: AppContext,
+			next: AppNext,
+		) => {
 			await next();
 		};
 		setFnName(sentinel, name);
@@ -1783,7 +1868,10 @@ export class CodexaHttp implements ICodexaHttp {
 		});
 
 		/** The real per-route handler. Closes over sentinelEntry so it reads the live enabled flag that tag controls may flip at runtime. */
-		const wrappedHandler: AppMiddleware<P> = async (ctx: AppContext<P>, next: AppNext) => {
+		const wrappedHandler: AppMiddleware<P> = async (
+			ctx: AppContext<P>,
+			next: AppNext,
+		) => {
 			// Mirror the sentinel's live enabled flag at request time.
 			if (!sentinelEntry?.enabled) {
 				await next();
@@ -2478,8 +2566,8 @@ export class CodexaHttp implements ICodexaHttp {
 	 * await app.boot();
 	 */
 	async install<C extends Record<string, unknown> = Record<string, unknown>>(
-		plugin: OrbitPlugin<C>,
-		context: OrbitPluginContext = {},
+		plugin: CodexaPlugin<C>,
+		context: CodexaPluginContext = {},
 		config?: C,
 	): Promise<this> {
 		this.assertNotCommitted('install()');
@@ -2493,7 +2581,7 @@ export class CodexaHttp implements ICodexaHttp {
 
 		// Guard: dependency validation (O(d), d = dependsOn.length).
 		this.plugins.validateDependencies(
-			plugin as OrbitPlugin<Record<string, unknown>>,
+			plugin as CodexaPlugin<Record<string, unknown>>,
 		);
 
 		// Create sandboxed scope.
@@ -2508,7 +2596,7 @@ export class CodexaHttp implements ICodexaHttp {
 
 		// Store in registry (erase generic C — runtime doesn't need it).
 		this.plugins.set(plugin.name, {
-			plugin: plugin as OrbitPlugin<Record<string, unknown>>,
+			plugin: plugin as CodexaPlugin<Record<string, unknown>>,
 			scope,
 			status: 'installed',
 			installedAt: Date.now(),
@@ -2582,7 +2670,7 @@ export class CodexaHttp implements ICodexaHttp {
 	 * Root-level alternative to scope.getService().
 	 *
 	 * @example
-	 * const checker = app.getPluginService<PolicyChecker>('orbit-auth', 'policyChecker');
+	 * const checker = app.getPluginService<PolicyChecker>('Codexa-auth', 'policyChecker');
 	 */
 	getPluginService<T>(pluginName: string, serviceName: string): T {
 		return this.plugins.getService<T>(pluginName, serviceName);
