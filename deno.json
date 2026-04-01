@@ -1,7 +1,7 @@
 {
 	"workspace": ["./codexa_core_testing"],
 	"name": "@codexa/core",
-	"version": "0.0.3",
+	"version": "0.0.2",
 	"license": "GPL-3.0-or-later",
 	"description": "Enterprise-grade modular toolkit for Deno — HTTP framework, event bus, store, cache, type-safe env, MongoDB, Redis, and more.",
 	"author": "Codexa-by-HQ",
