@@ -13,7 +13,7 @@
 // deno.json
 {
   "imports": {
-    "@codexa/core": "jsr:@codexa/core@^0.1.0"
+    "@codexa/core": "jsr:@codexa/core"
   }
 }
 ```
