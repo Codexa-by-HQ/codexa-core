@@ -5,6 +5,37 @@
 [![JSR](https://jsr.io/badges/@codexa/core)](https://jsr.io/@codexa/core)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 
+**`@codexa/core`** provides everything you need to build production-ready Deno backends — HTTP framework, event bus, unified store, caching, storage adapters, type-safe environment config, MongoDB, Redis, cryptography, and more. Each module is available as a standalone subpath import for optimal tree-shaking.
+
+---
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Subpath Imports](#subpath-imports)
+- [Quick Start](#quick-start)
+- [Modules](#modules)
+  - [HTTP Framework](#http-framework-codexacorehttp)
+  - [Environment Config](#environment-config-codexacoreconfig)
+  - [MongoDB](#mongodb-codexacoreconfig)
+  - [Redis](#redis-codexacoreconfig)
+  - [Event Bus](#event-bus-codexacorebus)
+  - [Store](#store-codexacorestore)
+  - [Cache](#cache-codexacorecache)
+  - [Storage](#storage-codexacorestorage)
+  - [Logger](#logger-codexacorelogger)
+  - [Crypto](#crypto-codexacorecrypto)
+  - [Hash](#hash-codexacorehash)
+  - [Zod](#zod-codexacorezod)
+  - [Device](#device-codexacoredevice)
+  - [TTL](#ttl-codexacorettl)
+  - [Response](#response-codexacoreresponse)
+  - [Query](#query-codexacorequery)
+- [Full Example](#full-example)
+- [Plugin System](#plugin-system)
+- [Author & Organization](#author--organization)
+- [License](#license)
+
 ---
 
 ## Installation
@@ -32,10 +63,11 @@ Every module is available via a dedicated subpath — **import only what you nee
 
 ```ts
 import { CodexaHttp, Router }   from '@codexa/core/http';
-import { env, createMongoDatabase, createRedisConnection } from '@codexa/core/config';
+import { env, createMongoDatabase, createRedisConnection, buildStorageConfig } from '@codexa/core/config';
 import { eventBus }             from '@codexa/core/bus';
 import { initializeStore, store } from '@codexa/core/store';
 import { createCache }          from '@codexa/core/cache';
+import { createStorageManager } from '@codexa/core/storage';
 import { createLogger }         from '@codexa/core/logger';
 import { zod }                  from '@codexa/core/zod';
 import { generateId, hashPassword, verifyPassword } from '@codexa/core/crypto';
@@ -48,19 +80,20 @@ import { parseQueryParams }     from '@codexa/core/query';
 
 | Subpath | Description |
 |---|---|
-| `@codexa/core/http` | HTTP framework (Oak-based), middleware pipeline, plugins |
-| `@codexa/core/config` | Environment, MongoDB, Redis, Storage configuration |
-| `@codexa/core/bus` | Event bus (local + distributed via Redis pub/sub) |
+| `@codexa/core/http` | HTTP framework (Oak-based), middleware pipeline, plugin system |
+| `@codexa/core/config` | Environment, MongoDB, Redis, Storage configuration factories |
+| `@codexa/core/bus` | Event bus (local + distributed via Redis Pub/Sub) |
 | `@codexa/core/store` | Unified key-value store (memory, Redis, Deno KV) |
 | `@codexa/core/cache` | Namespaced caching layer with tag invalidation |
-| `@codexa/core/logger` | Structured, leveled logger |
+| `@codexa/core/storage` | Unified storage manager (S3, Cloudinary, ImageKit, Local) |
+| `@codexa/core/logger` | Structured, leveled logger with file rotation |
 | `@codexa/core/zod` | Re-exported Zod for schema validation |
-| `@codexa/core/crypto` | ID generation, password hashing (PBKDF2) |
-| `@codexa/core/hash` | SHA-256/384/512, HMAC utilities |
-| `@codexa/core/device` | User-Agent parsing |
+| `@codexa/core/crypto` | ID generation, password hashing (PBKDF2-SHA256), base32/64 encoding |
+| `@codexa/core/hash` | SHA-1/256/384/512, HMAC utilities, AWS Signature V4 helpers |
+| `@codexa/core/device` | User-Agent parsing via ua-parser-js |
 | `@codexa/core/ttl` | TTL string parsing (`"1h"` → `3600`) |
 | `@codexa/core/response` | Standardized API response helpers |
-| `@codexa/core/query` | Query string parsing |
+| `@codexa/core/query` | Query string parsing via `qs` |
 
 ---
 
@@ -107,7 +140,7 @@ await app.listen({ port: env.get<number>('PORT') });
 
 ### HTTP Framework (`@codexa/core/http`)
 
-A priority-sorted, lifecycle-managed middleware pipeline built on [Oak](https://jsr.io/@oak/oak).
+A priority-sorted, lifecycle-managed middleware pipeline built on [Oak](https://jsr.io/@oak/oak) with an enterprise plugin system.
 
 > **No need to install `@oak/oak` separately** — `Router` is re-exported from `@codexa/core/http`.
 
@@ -119,11 +152,11 @@ import { CodexaHttp, Router, MiddlewarePriority } from '@codexa/core/http';
 const app = new CodexaHttp({ name: 'UserService' });
 ```
 
-The `name` parameter identifies the app instance in logs. Each `new CodexaHttp()` creates a completely isolated instance with its own middleware pipeline, plugins, and lifecycle:
+Each `new CodexaHttp()` creates a **completely isolated instance** with its own middleware pipeline, plugins, and lifecycle:
 
 ```ts
-const app1 = new CodexaHttp({ name: 'PublicAPI' });
-const app2 = new CodexaHttp({ name: 'AdminAPI' });
+const publicApi = new CodexaHttp({ name: 'PublicAPI' });
+const adminApi  = new CodexaHttp({ name: 'AdminAPI' });
 // Completely isolated — separate routes, plugins, state
 ```
 
@@ -162,11 +195,6 @@ app.use(authParser, {
 #### Routers
 
 ```ts
-import { CodexaHttp, Router } from '@codexa/core/http';
-
-const app = new CodexaHttp({ name: 'MyAPI' });
-
-// Create routers (no need to install @oak/oak!)
 const usersRouter = new Router();
 usersRouter.get('/', listUsers);
 usersRouter.post('/', createUser);
@@ -174,13 +202,7 @@ usersRouter.get('/:id', getUser);
 usersRouter.put('/:id', updateUser);
 usersRouter.delete('/:id', deleteUser);
 
-const authRouter = new Router();
-authRouter.post('/login', login);
-authRouter.post('/register', register);
-
-// Register with prefix
 app.router('/api/users', usersRouter);
-app.router('/api/auth', authRouter);
 ```
 
 #### HTTP Shortcuts
@@ -193,6 +215,35 @@ app.get('/health', async (ctx) => {
 app.post('/api/webhook', async (ctx) => {
   const body = await ctx.request.body.json();
   ctx.response.body = { received: true };
+});
+```
+
+#### Middleware Groups
+
+```ts
+app.group('auth', [authParser, sessionHydrator], {
+  priority: MiddlewarePriority.AUTH,
+  tags: ['authentication'],
+});
+```
+
+#### Conditional & Safe Middleware
+
+```ts
+// Only run in production
+app.useIf(
+  () => env.isProduction(),
+  rateLimiter,
+  { name: 'rate-limit', priority: MiddlewarePriority.SECURITY },
+);
+
+// Catches errors without crashing the server
+app.useSafe(riskyExternalCall, {
+  name: 'external-api',
+  onError: (ctx, err) => {
+    ctx.response.status = 502;
+    ctx.response.body = { success: false, error: 'Service unavailable' };
+  },
 });
 ```
 
@@ -211,19 +262,22 @@ app.version('2.0.0').get('/api/users', listUsersV2);
 app.use(debugLogger, { name: 'debug', tags: ['debug'] });
 app.use(featureXHandler, { name: 'feature-x', tags: ['beta'], enabled: false });
 
-// Later: toggle at runtime
+// Toggle at runtime
 app.enableByTags('beta');    // turn on beta features
 app.disableByTags('debug');  // turn off debug logging
-
 console.table(app.inspectByTags('beta'));
 ```
 
 #### Lifecycle
 
 ```ts
+idle → booting → ready → listening → shutting_down → stopped
+```
+
+```ts
 const app = new CodexaHttp({ name: 'MyAPI' });
 
-// Register middleware before boot
+// Register everything before boot
 app.use(cors());
 app.router('/api/users', usersRouter);
 
@@ -231,13 +285,12 @@ app.router('/api/users', usersRouter);
 app.onShutdown(() => db.disconnect());
 app.onShutdown(() => redis.disconnect());
 
-// Boot (commits pipeline, no more registrations after this)
+// Boot commits the pipeline — no more registrations after this
 await app.boot(async () => {
   await db.connect();
   await redis.connect();
 });
 
-// Listen
 await app.listen({ port: 8000, host: '0.0.0.0' });
 ```
 
@@ -252,56 +305,11 @@ await app.listen({ port: 8000, host: '0.0.0.0' });
 | `BUSINESS` | 40 | Controllers (default) |
 | `FALLBACK` | 50 | 404 handler |
 
-#### Plugin System
+#### Built-in Middleware (automatic)
 
-Plugins get a sandboxed scope — they can't call `boot()` or `shutdown()`:
-
-```ts
-import type { CodexaPlugin, IPluginScope } from '@codexa/core/http';
-
-const authPlugin: CodexaPlugin<{ jwtSecret: string }> = {
-  name: 'auth',
-  version: '1.0.0',
-  metadata: { license: 'MIT' },
-
-  install(scope, context, config) {
-    const { jwtSecret } = config!;
-
-    scope.init(async () => {
-      // Runs during boot in dependency order
-    });
-
-    scope.use(async (ctx, next) => {
-      // Auth middleware — auto-tagged with 'auth'
-      await next();
-    }, {
-      name: 'tokenValidator',
-      priority: 20, // AUTH
-      provide: { userId: '', role: '' },
-    });
-
-    scope.exposeService('jwtSecret', jwtSecret);
-  },
-};
-
-// Install & boot
-const app = new CodexaHttp({ name: 'MyAPI' });
-await app.install(authPlugin, { db }, { jwtSecret: 'secret' });
-await app.boot();
-```
-
-**Typed Plugin State** — augment `PluginStateMap` in your project:
-
-```ts
-declare module '@codexa/core/http' {
-  interface PluginStateMap {
-    auth: { userId: string; role: string; permissions: string[] };
-  }
-}
-
-// Now fully typed everywhere:
-// ctx.state.auth.userId   ✓ autocompletion works
-```
+- **Error Boundary** — outermost try/catch, returns structured 500 JSON, emits `oak:request:error`
+- **Request Lifecycle** — generates `requestId`, records timing, sets `X-Request-Id` / `X-Response-Time` headers, logs morgan-style HTTP lines
+- **Not-Found Handler** — returns structured 404 JSON for unmatched routes
 
 #### Introspection
 
@@ -329,27 +337,14 @@ await env.loadEnv({
 
   // YOUR schema — define exactly what your app needs
   schema: zod.object({
-    // App
     PORT: zod.coerce.number().default(8080),
     NODE_ENV: zod.enum(['development', 'production', 'test']).default('development'),
-
-    // Database
     MONGODB_URI: zod.string().url(),
     MONGODB_DATABASE: zod.string(),
-
-    // Redis
     REDIS_URL: zod.string().optional(),
-
-    // JWT
     JWT_SECRET: zod.string().min(32),
     JWT_EXPIRY: zod.string().default('7d'),
-
-    // Storage
-    STORAGE_PROVIDER: zod.enum(['s3', 'cloudinary', 'local']).default('local'),
-    S3_BUCKET: zod.string().optional(),
-    S3_REGION: zod.string().optional(),
-    S3_ACCESS_KEY: zod.string().optional(),
-    S3_SECRET_KEY: zod.string().optional(),
+    STORAGE_PROVIDER: zod.enum(['s3', 'cloudinary', 'imagekit', 'local']).default('local'),
   }).passthrough(),
 });
 
@@ -496,7 +491,7 @@ redis.createSubscriberClient() // → Promise<RedisClient> (additional sub clien
 
 ### Event Bus (`@codexa/core/bus`)
 
-Type-safe event bus with local and distributed (Redis) modes.
+Type-safe event bus with local and distributed (Redis Pub/Sub) modes.
 
 ```ts
 import { eventBus } from '@codexa/core/bus';
@@ -519,7 +514,7 @@ eventBus.once('system', 'startup', (data) => {
   console.log('System started (fires once)');
 });
 
-// Emit events
+// Emit events (local)
 eventBus.emit('orders', 'created', {
   id: 'ord-123',
   total: 99.99,
@@ -635,6 +630,131 @@ await userCache.flush();
 
 ---
 
+### Storage (`@codexa/core/storage`)
+
+Unified storage layer with four providers — **S3**, **Cloudinary**, **ImageKit**, and **Local filesystem**.
+
+```ts
+import { buildStorageConfig } from '@codexa/core/config';
+import { createStorageManager } from '@codexa/core/storage';
+
+// Build config from environment variables
+const storageConfig = buildStorageConfig(Deno.env.toObject());
+
+// Create storage manager (auto-resolves provider from config)
+const storage = createStorageManager(storageConfig);
+```
+
+**Supported providers:**
+
+| Provider | `STORAGE_PROVIDER` | Capabilities |
+|---|---|---|
+| **S3** (AWS, R2, MinIO, B2) | `s3` | Upload, delete, exists, presigned URLs, CDN |
+| **Cloudinary** | `cloudinary` | Upload, delete, exists, signed URLs, transformations, direct upload |
+| **ImageKit** | `imagekit` | Upload, delete, exists, signed URLs, transformations, direct upload |
+| **Local** | `local` | Upload, delete, exists (dev/test only) |
+
+**Server-side upload:**
+
+```ts
+// Single file
+const result = await storage.upload(fileBytes, {
+  folder: 'avatars',
+  contentType: 'image/jpeg',
+  assetType: 'image',
+});
+console.log(result.url);  // public URL
+console.log(result.key);  // storage key for future operations
+
+// Multiple files (concurrent)
+const results = await storage.upload([imgBytes, pdfBytes], [
+  { folder: 'images', contentType: 'image/png', assetType: 'image' },
+  { folder: 'docs', contentType: 'application/pdf', assetType: 'document' },
+]) as UploadResult[];
+```
+
+**Client-side direct upload (recommended for large files):**
+
+```ts
+// Server endpoint — generates signed credentials
+app.post('/upload-token', async (ctx) => {
+  const { folder, contentType, assetType } = await ctx.request.body.json();
+  const token = await storage.getSignedUploadUrl({
+    folder,
+    contentType,
+    assetType,
+    expiresIn: 1800,  // 30 minutes
+  });
+  ctx.response.body = token;
+  // Returns: { uploadUrl, method, fields?, key, expiresAt, publicUrl? }
+});
+
+// Browser client — uploads directly to provider
+const token = await fetch('/upload-token', { method: 'POST', ... }).then(r => r.json());
+// For Cloudinary/ImageKit (multipart POST):
+const form = new FormData();
+Object.entries(token.fields).forEach(([k, v]) => form.append(k, v));
+form.append('file', fileInput.files[0]);
+await fetch(token.uploadUrl, { method: 'POST', body: form });
+
+// For S3 (raw PUT):
+await fetch(token.uploadUrl, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'video/mp4' },
+  body: fileInput.files[0],
+});
+```
+
+**Other operations:**
+
+```ts
+// Delete
+await storage.delete(result.key);
+
+// Check existence
+const exists = await storage.exists(result.key);
+
+// Signed delivery URL (private assets, time-limited)
+const url = await storage.getSignedUrl(result.key, 3600);
+
+// On-the-fly transformation URL (Cloudinary/ImageKit only)
+const thumb = storage.getTransformedUrl(result.key, {
+  width: 200, height: 200, crop: 'fill', format: 'webp',
+});
+```
+
+**Environment variables by provider:**
+
+```env
+# S3 / S3-compatible
+STORAGE_PROVIDER=s3
+S3_BUCKET=my-bucket
+S3_REGION=us-east-1
+S3_ACCESS_KEY=AKIA...
+S3_SECRET_KEY=wJal...
+S3_ENDPOINT=https://account.r2.cloudflarestorage.com  # optional (R2, MinIO, etc.)
+S3_CDN_BASE_URL=https://cdn.example.com               # optional
+
+# Cloudinary
+STORAGE_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=mycloud
+CLOUDINARY_API_KEY=123456789
+CLOUDINARY_API_SECRET=abcdef...
+
+# ImageKit
+STORAGE_PROVIDER=imagekit
+IMAGEKIT_PUBLIC_KEY=public_abc...
+IMAGEKIT_PRIVATE_KEY=private_xyz...
+IMAGEKIT_URL_ENDPOINT=https://ik.imagekit.io/myid
+
+# Local (dev/test only)
+STORAGE_PROVIDER=local
+LOCAL_STORAGE_DIR=./uploads
+LOCAL_BASE_URL=http://localhost:3000/uploads
+```
+
+---
+
 ### Logger (`@codexa/core/logger`)
 
 ```ts
@@ -661,11 +781,12 @@ paymentLog.info('Processing payment...'); // [OrderService:Payment] Processing..
 import { generateId, hashPassword, verifyPassword } from '@codexa/core/crypto';
 
 // UUID-style ID generation
-const id = generateId(); // "a1b2c3d4-e5f6-7890-..."
+const id = generateId(); // "a1b2c3d4e5f67890..."
 
-// Password hashing (PBKDF2-SHA256, no external deps)
+// Password hashing (PBKDF2-SHA256, Web Crypto API, no external deps)
 const hashed = await hashPassword('MySecurePassword123!');
 const isValid = await verifyPassword('MySecurePassword123!', hashed); // true
+// Timing-safe comparison prevents timing attacks
 ```
 
 ---
@@ -673,7 +794,7 @@ const isValid = await verifyPassword('MySecurePassword123!', hashed); // true
 ### Hash (`@codexa/core/hash`)
 
 ```ts
-import { sha256, sha512, hmacSha256 } from '@codexa/core/hash';
+import { sha256, sha512, hmacSha256, hmacSha1 } from '@codexa/core/hash';
 
 const hash = await sha256('hello world');
 const signature = await hmacSha256('payload', 'webhook-secret');
@@ -700,15 +821,71 @@ const result = UserSchema.safeParse(rawData);
 
 ---
 
+### Device (`@codexa/core/device`)
+
+```ts
+import { parseDevice } from '@codexa/core/device';
+
+const device = parseDevice(ctx.request.headers.get('user-agent') ?? '');
+// { browser: 'Chrome', os: 'Windows', device: 'desktop', raw: '...' }
+```
+
+---
+
+### TTL (`@codexa/core/ttl`)
+
+```ts
+import { parseTtlToSeconds } from '@codexa/core/ttl';
+
+parseTtlToSeconds('1h');   // 3600
+parseTtlToSeconds('30m');  // 1800
+parseTtlToSeconds('7d');   // 604800
+parseTtlToSeconds('90s');  // 90
+parseTtlToSeconds(3600);   // 3600 (passthrough)
+```
+
+---
+
+### Response (`@codexa/core/response`)
+
+```ts
+import { sendSuccess, sendError, sendNotFound, sendInternalError } from '@codexa/core/response';
+
+// Standardized JSON responses
+sendSuccess(ctx, { users: [] });
+// → { success: true, data: { users: [] }, meta: { timestamp, requestId } }
+
+sendError(ctx, 'Validation failed', 400, { field: 'email' });
+// → { success: false, error: 'Validation failed', details: {...}, meta: {...} }
+
+sendNotFound(ctx, 'User not found');
+sendInternalError(ctx);
+```
+
+---
+
+### Query (`@codexa/core/query`)
+
+```ts
+import { parseQueryParams } from '@codexa/core/query';
+
+// Parses nested query strings via `qs`
+const params = parseQueryParams(ctx.request.url.search);
+// ?filters[status]=active&page=2 → { filters: { status: 'active' }, page: '2' }
+```
+
+---
+
 ## Full Example
 
 ```ts
 // server.ts
 import { CodexaHttp, Router, MiddlewarePriority } from '@codexa/core/http';
-import { env, createMongoDatabase, createRedisConnection } from '@codexa/core/config';
+import { env, createMongoDatabase, createRedisConnection, buildStorageConfig } from '@codexa/core/config';
 import { eventBus } from '@codexa/core/bus';
 import { initializeStore } from '@codexa/core/store';
 import { createCache } from '@codexa/core/cache';
+import { createStorageManager } from '@codexa/core/storage';
 import { zod } from '@codexa/core/zod';
 
 // ── Environment ─────────────────────────────────────────────────
@@ -720,6 +897,7 @@ await env.loadEnv({
     MONGODB_URI: zod.string(),
     MONGODB_DATABASE: zod.string().default('myapp'),
     REDIS_URL: zod.string().optional(),
+    STORAGE_PROVIDER: zod.enum(['s3', 'cloudinary', 'imagekit', 'local']).default('local'),
   }).passthrough(),
 });
 
@@ -733,6 +911,9 @@ const redis = createRedisConnection({
   url: env.get('REDIS_URL'),
   enablePubSub: true,
 });
+
+const storageConfig = buildStorageConfig(Deno.env.toObject());
+const storage = createStorageManager(storageConfig);
 
 // ── App ─────────────────────────────────────────────────────────
 const app = new CodexaHttp({ name: 'MyAPI' });
@@ -786,6 +967,109 @@ await app.boot(async () => {
 
 console.table(app.inspect());
 await app.listen({ port: env.get<number>('PORT') });
+```
+
+---
+
+## Plugin System
+
+Plugins get a sandboxed scope — they can register routes, middleware, and services, but **cannot** call `boot()`, `listen()`, or `shutdown()`:
+
+```ts
+import type { CodexaPlugin, IPluginScope } from '@codexa/core/http';
+
+const authPlugin: CodexaPlugin<{ jwtSecret: string }> = {
+  name: 'auth',
+  version: '1.0.0',
+  metadata: { license: 'MIT' },
+  // dependsOn: ['db-plugin'], // optional dependency declaration
+
+  install(scope, context, config) {
+    const { jwtSecret } = config!;
+
+    // Async init (runs during boot in dependency order)
+    scope.init(async () => {
+      // Load signing keys, warm caches, etc.
+    });
+
+    // Middleware — auto-tagged with 'auth'
+    scope.use(async (ctx, next) => {
+      const token = ctx.request.headers.get('authorization');
+      // ... validate token ...
+      await next();
+    }, {
+      name: 'tokenValidator',
+      priority: 20,  // AUTH
+      provide: { userId: '', role: '' },
+    });
+
+    // Services (accessible by sibling plugins)
+    scope.exposeService('jwtSecret', jwtSecret);
+
+    // Routes
+    scope.get('/auth/me', async (ctx) => {
+      ctx.response.body = { ok: true };
+    });
+
+    // Shutdown hook
+    scope.onShutdown(async () => {
+      // Cleanup plugin resources
+    });
+  },
+};
+
+// Install & boot
+const app = new CodexaHttp({ name: 'MyAPI' });
+await app.install(authPlugin, { db }, { jwtSecret: 'secret' });
+await app.boot();
+```
+
+**Typed Plugin State** — augment `PluginStateMap` for full autocompletion:
+
+```ts
+declare module '@codexa/core/http' {
+  interface PluginStateMap {
+    auth: { userId: string; role: string; permissions: string[] };
+  }
+}
+
+// Now fully typed everywhere:
+// ctx.state.auth.userId   ✓ autocompletion
+```
+
+**Key guarantees:**
+- All registrations are auto-tagged with the plugin name
+- `provide` values are scoped under `ctx.state[pluginName]`
+- Circular dependencies detected via Kahn's topological sort
+- All lookups (plugin, service) are O(1)
+- Plugins can be uninstalled: `await app.uninstall('auth')`
+
+---
+
+## Author & Organization
+
+**`@codexa/core`** is built and maintained by **[Codexa-by-HQ](https://github.com/Codexa-by-HQ)**.
+
+### Author
+
+**Hamza Qureshi** — Founder & Owner of Codexa-by-HQ
+
+- 🔗 **GitHub:** [Codexa-by-HQ](https://github.com/Codexa-by-HQ)
+- 💼 **LinkedIn:** [Hamza Qureshi](https://www.linkedin.com/in/hamza-qureshi-871163245/)
+- 📸 **Instagram:** [@hamza_qureshi_2906](https://www.instagram.com/hamza_qureshi_2906/?hl=en)
+- 🌐 **GitHub Profile:** [Hamza-Qureshi09](https://github.com/Hamza-Qureshi09)
+
+### Contributing
+
+Contributions are welcome! Please follow the existing code style (tabs, single quotes, strict types) and ensure `deno check mod.ts` passes before submitting a PR.
+
+### Publishing
+
+This package is published to [JSR](https://jsr.io/@codexa/core) via the included GitHub Actions workflow. Tag a release with `v*` to trigger an automated publish:
+
+```bash
+git tag v0.0.4
+git push origin v0.0.4
 ```
 
 ---
