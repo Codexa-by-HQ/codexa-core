@@ -3,7 +3,7 @@
 > A modular, enterprise-grade toolkit for building scalable Deno applications.
 
 [![JSR](https://jsr.io/badges/@codexa/core)](https://jsr.io/@codexa/core)
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) 
 
 **`@codexa/core`** provides everything you need to build production-ready Deno backends — HTTP framework, event bus, unified store, caching, storage adapters, type-safe environment config, MongoDB, Redis, cryptography, and more. Each module is available as a standalone subpath import for optimal tree-shaking.
 
