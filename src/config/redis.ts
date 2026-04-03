@@ -34,7 +34,7 @@
 import IoRedis from 'ioredis';
 import { createLogger } from '../utils/logger.ts';
 
-const log = createLogger('Redis');
+const log = createLogger('Codexa:Redis');
 
 // ioredis default export in Deno may be wrapped in a namespace object.
 // We need the actual class constructor regardless of module format.
@@ -83,7 +83,7 @@ export interface RedisConnectionConfig {
  */
 export interface RedisConnection {
 	/**
-	 * Connect to Redis. Safe to call multiple times — subsequent calls return
+	 * Connect to Redis. Safe to call multiple times - subsequent calls return
 	 * the existing client.
 	 */
 	connect(): Promise<RedisClient>;
@@ -207,14 +207,14 @@ export function createRedisConnection(
 	function wireEvents(client: RedisClient, role: string): void {
 		client.on('connect', () => log.debug(`Redis ${role}: TCP connected`));
 		client.on('ready', () => log.info(`Redis ${role}: ready`));
-		client.on('error', (error: Error) =>
-			log.error(`Redis ${role} error`, error)
+		client.on(
+			'error',
+			(error: Error) => log.error(`Redis ${role} error`, error),
 		);
-		client.on('close', () =>
-			log.warn(`Redis ${role}: connection closed`)
-		);
-		client.on('reconnecting', () =>
-			log.info(`Redis ${role}: reconnecting...`)
+		client.on('close', () => log.warn(`Redis ${role}: connection closed`));
+		client.on(
+			'reconnecting',
+			() => log.info(`Redis ${role}: reconnecting...`),
 		);
 	}
 
@@ -268,7 +268,7 @@ export function createRedisConnection(
 			}
 			if (connectingPromise) {
 				log.debug(
-					'Redis connection already in progress — awaiting',
+					'Redis connection already in progress - awaiting',
 				);
 				return connectingPromise;
 			}

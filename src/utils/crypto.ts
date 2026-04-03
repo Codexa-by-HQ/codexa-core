@@ -37,8 +37,7 @@ export function randomBytes(length: number): string {
 }
 
 /** Generate secure random bytes as a raw Uint8Array. output=> Uint8Array [163, 249, 28, 123]
- * 
-*/
+ */
 export function randomBytesRaw(length: number): Uint8Array {
 	const bytes = new Uint8Array(length);
 	crypto.getRandomValues(bytes);
@@ -122,7 +121,7 @@ export function fromBase64Url(str: string): Uint8Array {
 
 // ── Timing-safe comparison ───────────────────────────────────────────────────
 
-/** Constant-time string comparison — prevents timing attacks. */
+/** Constant-time string comparison - prevents timing attacks. */
 export function timingSafeEqual(a: string, b: string): boolean {
 	if (a.length !== b.length) return false;
 	let result = 0;
@@ -132,7 +131,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
 	return result === 0;
 }
 
-// ── Password hashing helpers (Web Crypto — bcrypt-free) ──────────────────────
+// ── Password hashing helpers (Web Crypto - bcrypt-free) ──────────────────────
 
 /**
  * Hash a password using PBKDF2-SHA256 (Web Crypto API, no native addons).
@@ -160,7 +159,12 @@ export async function hashPassword(
 		['deriveBits'],
 	);
 	const derived = await crypto.subtle.deriveBits(
-		{ name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes as unknown as ArrayBuffer, iterations },
+		{
+			name: 'PBKDF2',
+			hash: 'SHA-256',
+			salt: saltBytes as unknown as ArrayBuffer,
+			iterations,
+		},
 		keyMaterial,
 		256,
 	);
@@ -190,7 +194,12 @@ export async function verifyPassword(
 			['deriveBits'],
 		);
 		const derived = await crypto.subtle.deriveBits(
-			{ name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes as unknown as ArrayBuffer, iterations },
+			{
+				name: 'PBKDF2',
+				hash: 'SHA-256',
+				salt: saltBytes as unknown as ArrayBuffer,
+				iterations,
+			},
 			keyMaterial,
 			256,
 		);

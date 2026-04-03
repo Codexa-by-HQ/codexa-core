@@ -21,8 +21,8 @@
  *   }),
  * });
  *
- * config.PORT        // number — fully typed with autocomplete
- * config.JWT_SECRET  // string — fully typed with autocomplete
+ * config.PORT        // number - fully typed with autocomplete
+ * config.JWT_SECRET  // string - fully typed with autocomplete
  * ```
  *
  * @example Untyped (raw mode)
@@ -32,20 +32,17 @@
  * ```
  */
 
-import { zod } from '../utils/zod.ts';
+import { AnyZodObject, zod, ZodError, ZodInfer } from '../utils/zod.ts';
 import { load as envLoad } from '@std/dotenv';
 import { createLogger } from '../utils/logger.ts';
 
-const log = createLogger('Env');
-
-// deno-lint-ignore no-explicit-any
-type AnyZodObject = zod.ZodObject<any>;
+const log = createLogger('Codexa:Env');
 
 /**
  * Options for {@link Environment.loadEnv}.
  *
  * When `schema` is provided, the returned config is fully typed
- * based on the Zod schema — giving autocomplete on all fields.
+ * based on the Zod schema - giving autocomplete on all fields.
  */
 export interface LoadEnvOptions<S extends AnyZodObject = AnyZodObject> {
 	/**
@@ -64,7 +61,7 @@ export interface LoadEnvOptions<S extends AnyZodObject = AnyZodObject> {
 	schema?: S;
 
 	/**
-	 * If `false`, skip loading `.env` files entirely — use only `Deno.env`.
+	 * If `false`, skip loading `.env` files entirely - use only `Deno.env`.
 	 * @default true
 	 */
 	loadFiles?: boolean;
@@ -83,8 +80,8 @@ export interface LoadEnvOptions<S extends AnyZodObject = AnyZodObject> {
  *     DATABASE_URL: zod.string(),
  *   }),
  * });
- * config.PORT         // number — fully typed
- * config.DATABASE_URL // string — fully typed
+ * config.PORT         // number - fully typed
+ * config.DATABASE_URL // string - fully typed
  * ```
  *
  * @example Untyped access via env.get()
@@ -116,7 +113,7 @@ export class Environment {
 	 *
 	 * 1. Reads `.env` file(s) from `paths` (merged left-to-right).
 	 * 2. Overlays `Deno.env` system vars (system always wins).
-	 * 3. If `schema` is provided, validates and parses — returns **typed config**.
+	 * 3. If `schema` is provided, validates and parses - returns **typed config**.
 	 *
 	 * @returns The validated config when a schema is provided.
 	 *          Without a schema, returns the raw merged env as `Record<string,string>`.
@@ -126,7 +123,7 @@ export class Environment {
 	 * const config = await env.loadEnv({
 	 *   schema: zod.object({ PORT: zod.coerce.number().default(8080) }),
 	 * });
-	 * config.PORT // number — fully typed
+	 * config.PORT // number - fully typed
 	 * ```
 	 */
 	public async loadEnv<S extends AnyZodObject>(
@@ -140,7 +137,7 @@ export class Environment {
 
 		const pathList = Array.isArray(paths) ? paths : [paths];
 
-		// ── Step 1: Load .env files ──────────────────────────────
+		// Step 1: Load .env files
 		// deno-lint-ignore no-explicit-any
 		let fileVars: Record<string, any> = {};
 
@@ -161,19 +158,19 @@ export class Environment {
 			}
 		}
 
-		// ── Step 2: Merge with system env (system wins) ──────────
+		// Step 2: Merge with system env (system wins)
 		const merged: Record<string, string> = {
 			...fileVars,
 			...Deno.env.toObject(),
 		};
 
-		// ── Step 3: Validate with schema (if provided) ───────────
+		// Step 3: Validate with schema (if provided)
 		if (schema) {
 			try {
 				this.config = schema.parse(merged);
 				log.info('Environment validated successfully');
 			} catch (error: unknown) {
-				if (error instanceof zod.ZodError) {
+				if (error instanceof ZodError) {
 					log.fatal('Environment validation failed:');
 					// deno-lint-ignore no-explicit-any
 					(error.issues as any[]).forEach(
@@ -190,15 +187,15 @@ export class Environment {
 				throw error;
 			}
 		} else {
-			// No schema — store raw merged values (all strings)
+			// No schema - store raw merged values (all strings)
 			this.config = merged;
 			log.info(
-				'Environment loaded (no schema validation — raw values)',
+				'Environment loaded (no schema validation - raw values)',
 			);
 		}
 
 		this._loaded = true;
-		return this.config as zod.infer<S>;
+		return this.config as ZodInfer<S>;
 	}
 
 	/**
@@ -234,7 +231,7 @@ export class Environment {
 		return this.config as T;
 	}
 
-	// ── Utility getters ──────────────────────────────────────────
+	// Utility getters
 
 	/** True if the env var is one of: true | 1 | yes | on */
 	public enabled(key: string): boolean {
@@ -263,7 +260,7 @@ export class Environment {
 			.filter(Boolean);
 	}
 
-	// ── Environment checks ───────────────────────────────────────
+	// Environment checks
 
 	/** Check if NODE_ENV matches the given type. */
 	public is(type: string): boolean {

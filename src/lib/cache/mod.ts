@@ -19,7 +19,7 @@
 import { store } from '../store/mod.ts';
 import { createLogger } from '../../utils/logger.ts';
 
-const log = createLogger('Cache');
+const log = createLogger('Codexa:Cache');
 
 const TAG_PREFIX = '_tag:';
 
@@ -55,7 +55,11 @@ export interface CacheNamespace {
 	 * const user = await userCache.getOrSet('u123', () => fetchUser('u123'), { ttl: 600 });
 	 * ```
 	 */
-	getOrSet<T>(key: string, compute: () => Promise<T>, options?: CacheSetOptions): Promise<T>;
+	getOrSet<T>(
+		key: string,
+		compute: () => Promise<T>,
+		options?: CacheSetOptions,
+	): Promise<T>;
 	/**
 	 * Invalidate all cache entries associated with a tag.
 	 * Deletes both the tagged keys and the tag registry entry.
@@ -71,7 +75,10 @@ export interface CacheNamespace {
  * Create a namespaced cache instance.
  * All keys are prefixed with `codexa_cache:<namespace>:` to avoid collisions.
  */
-export function createCache(namespace: string, opts: CacheOptions = {}): CacheNamespace {
+export function createCache(
+	namespace: string,
+	opts: CacheOptions = {},
+): CacheNamespace {
 	const defaultTtl = opts.defaultTtl ?? 300;
 	const prefix = opts.prefix ?? `codexa_cache::${namespace}:`;
 
@@ -88,7 +95,11 @@ export function createCache(namespace: string, opts: CacheOptions = {}): CacheNa
 			return await store.get<T>(prefixKey(key));
 		},
 
-		async set(key: string, value: unknown, options?: CacheSetOptions): Promise<void> {
+		async set(
+			key: string,
+			value: unknown,
+			options?: CacheSetOptions,
+		): Promise<void> {
 			const ttl = options?.ttl ?? defaultTtl;
 			const fullKey = prefixKey(key);
 			await store.set(fullKey, value, { ttl });

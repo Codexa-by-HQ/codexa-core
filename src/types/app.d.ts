@@ -2,13 +2,11 @@
  * Shared type definitions for @codexa/core.
  *
  * These types are imported by internal modules. They are NOT re-exported
- * as a separate subpath — consumers get them via the module that uses them
+ * as a separate subpath - consumers get them via the module that uses them
  * (e.g. `import type { Logger } from '@codexa/core/logger'`).
  */
 
-// ── Logger ────────────────────────────────────────────────────────────────────
-
-/** Union of all valid log level strings. */
+// Logger
 export type LogLevelT = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 export interface LogFileConfig {
@@ -35,8 +33,7 @@ export interface LogEntry {
 	data?: unknown;
 }
 
-// ── Device / Platform / OS ────────────────────────────────────────────────────
-
+// Device / Platform / OS
 export type DeviceType =
 	| 'desktop'
 	| 'mobile'
@@ -72,13 +69,11 @@ export interface DeviceInfo {
 	raw: string;
 }
 
-// ── Hash / Crypto ─────────────────────────────────────────────────────────────
-
+// Hash / Crypto
 export type HashAlgorithm = 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
 export type HmacAlgorithm = 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
 
-// ── Event Bus ─────────────────────────────────────────────────────────────────
-
+// Event Bus
 export type EventHandler<T = unknown> = (data: T) => void | Promise<void>;
 
 export interface HandlerEntry {
@@ -125,8 +120,7 @@ export interface IEventBus {
 	destroy(): Promise<void>;
 }
 
-// ── Store ─────────────────────────────────────────────────────────────────────
-
+// Store
 export type StoreMode = 'redis' | 'kv' | 'memory';
 export type StoreType = StoreMode;
 
@@ -173,8 +167,7 @@ export interface StoreStats {
 	backend: string;
 }
 
-// ── Storage ───────────────────────────────────────────────────────────────────
-
+// Storage
 export type StorageProviderType = 's3' | 'cloudinary' | 'imagekit' | 'local';
 export type AssetType = 'image' | 'video' | 'document' | 'raw';
 
@@ -185,7 +178,9 @@ export interface StorageConfig {
 		region: string;
 		accessKey: string;
 		secretKey: string;
+		/** Custom endpoint for S3-compatible services (MinIO, R2, etc.). */
 		endpoint?: string;
+		/** CDN base URL prepended to the object key in UploadResult.url. */
 		cdnBaseUrl?: string;
 	};
 	cloudinary?: {
@@ -204,6 +199,7 @@ export interface StorageConfig {
 	};
 }
 
+// Transformation
 export interface TransformationOptions {
 	width?: number | `${number}%`;
 	height?: number | `${number}%`;
@@ -222,6 +218,8 @@ export interface TransformationOptions {
 		| 'auto'
 		| string;
 	quality?: number | 'auto';
+
+	// Escape hatches for provider-specific options
 	cloudinaryOpts?:
 		| Record<string, unknown>
 		| Array<Record<string, unknown>>;
@@ -236,11 +234,14 @@ export interface UploadOptions {
 	overwrite?: boolean;
 	contentType?: string;
 	assetType?: AssetType;
+	/** If false, the file is stored as private/authenticated. Default: true. */
 	isPublic?: boolean;
+	/** Provider-specific stable identifier (Cloudinary public_id, etc.). */
 	customId?: string;
 	tags?: readonly string[];
 	tenantId?: string;
 	metadata?: Record<string, string>;
+	/** Transformations to apply immediately after the client's upload lands. */
 	eagerTransformations?: TransformationOptions[];
 }
 
@@ -250,36 +251,128 @@ export interface UploadResult {
 	contentType: string;
 	url: string;
 	assetType: AssetType;
+	/** Provider's stable public identifier (Cloudinary public_id / ImageKit fileId). */
 	publicId?: string;
 	format?: string;
 	width?: number;
 	height?: number;
+	/** Duration in seconds (video assets). */
 	duration?: number;
+	/** Bit-rate in bits/second (video assets). */
 	bitrate?: number;
 	frameRate?: number;
 	thumbnailUrl?: string;
 }
 
+// Signed / direct-upload (client-side)
+export interface SignedUploadOptions {
+	/** Target folder / prefix inside the bucket or cloud. */
+	folder?: string;
+	/** Desired file name (without extension). Providers may override it. */
+	fileName?: string;
+	/** MIME type of the file the client wants to upload. */
+	contentType: string;
+	assetType?: AssetType;
+	/** How long (seconds) the upload credential should remain valid. Default: 3600. */
+	expiresIn?: number;
+	/** Provider-specific stable identifier (Cloudinary public_id, etc.). */
+	customId?: string;
+	tags?: readonly string[];
+	overwrite?: boolean;
+	metadata?: Record<string, string>;
+	/** Transformations to apply immediately after the client's upload lands. */
+	eagerTransformations?: TransformationOptions[];
+}
+
+/**
+ * Credentials returned by the server so the browser / mobile client can upload
+ * directly to the storage provider - no file bytes ever pass through your API.
+ *
+ * The shape varies by provider:
+ * - **S3 / R2 / MinIO** - a single `uploadUrl` (presigned PUT).
+ * - **Cloudinary** - `uploadUrl` + `fields` map of form params to include.
+ * - **ImageKit** - `uploadUrl` + `fields` map (token, expire, signature, …).
+ * - **Local** - not supported; `getSignedUploadUrl` throws.
+ */
+export interface SignedUploadResult {
+	/**
+	 * The URL the client should HTTP POST (multipart) or PUT (S3) to.
+	 * Always present.
+	 */
+	uploadUrl: string;
+	/**
+	 * HTTP method the client must use.
+	 * - `"PUT"`  - S3 presigned PUT.
+	 * - `"POST"` - Cloudinary / ImageKit multipart form POST.
+	 */
+	method: 'PUT' | 'POST';
+	/**
+	 * Additional form fields the client must include in the multipart body
+	 * (Cloudinary, ImageKit).  Omitted for S3 presigned PUT.
+	 */
+	fields?: Record<string, string>;
+	/**
+	 * The key / public_id / filePath the uploaded file will receive.
+	 * Needed to call `getSignedUrl` or `getTransformedUrl` after upload.
+	 */
+	key: string;
+	/** Unix timestamp (seconds) when these credentials expire. */
+	expiresAt: number;
+	/**
+	 * Public URL where the asset will be accessible after the client upload
+	 * completes (only available when `isPublic !== false`).
+	 */
+	publicUrl?: string;
+}
+
 export interface StorageProvider {
 	upload(
-		file: Uint8Array | ReadableStream<Uint8Array>,
-		options?: UploadOptions,
-	): Promise<UploadResult>;
+		file:
+			| Uint8Array
+			| ReadableStream<Uint8Array>
+			| Array<Uint8Array | ReadableStream<Uint8Array>>,
+		options?: UploadOptions | UploadOptions[],
+	): Promise<UploadResult | UploadResult[]>;
+
 	delete(key: string): Promise<void>;
+
 	exists?(key: string): Promise<boolean>;
+
+	/**
+	 * Generate a time-limited **delivery** URL (reading an existing asset).
+	 *
+	 * @param key            Storage key / public_id / fileId.
+	 * @param expiresIn      Seconds until expiry (default 3600).
+	 * @param transformation Optional on-the-fly transforms baked into the URL.
+	 */
 	getSignedUrl?(
 		key: string,
 		expiresIn?: number,
 		transformation?: TransformationOptions,
 	): Promise<string>;
+
 	getTransformedUrl?(
 		key: string,
 		transformations: TransformationOptions,
 	): string;
+
+	/**
+	 * Generate credentials so the **client** can upload directly to the
+	 * storage provider - no file bytes pass through your server.
+	 *
+	 * Call this from a lightweight server endpoint (e.g. `POST /upload-token`)
+	 * that validates the user session, then return the result as JSON.  The
+	 * browser / mobile app uses `result.uploadUrl`, `result.method`, and
+	 * `result.fields` to push the file straight to the provider.
+	 *
+	 * @param options Metadata about the file the client intends to upload.
+	 */
+	getSignedUploadUrl?(
+		options: SignedUploadOptions,
+	): Promise<SignedUploadResult>;
 }
 
-// ── HTTP / API ────────────────────────────────────────────────────────────────
-
+// HTTP / API
 export interface ApiResponse<T = unknown> {
 	success: boolean;
 	message?: string;
@@ -307,8 +400,7 @@ export interface PaginatedResponse<T = unknown> extends ApiResponse<T[]> {
 	pagination: PaginationMeta;
 }
 
-// ── Metrics ───────────────────────────────────────────────────────────────────
-
+// Metrics
 export interface RequestMetrics {
 	timestamp: string;
 	duration: number;

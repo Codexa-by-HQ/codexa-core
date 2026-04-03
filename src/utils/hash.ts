@@ -16,7 +16,7 @@ function toHex(bytes: Uint8Array): string {
 		.join('');
 }
 
-// Convert a Uint8Array to a base64 string. All internal callers must wrap ArrayBuffer → new Uint8Array() before calling this.
+// Convert a Uint8Array to a base64 string.
 function toBase64(bytes: Uint8Array): string {
 	let binary = '';
 	for (const byte of bytes) {
@@ -26,6 +26,18 @@ function toBase64(bytes: Uint8Array): string {
 }
 
 // Public API
+/**
+ * Convert a `Uint8Array` to a lowercase hex string.
+ *
+ * @example
+ * ```ts
+ * const sig = await hmacRaw(key, payload);
+ * const hex = bytesToHex(sig); // "a3f91c…"
+ * ```
+ */
+export function bytesToHex(bytes: Uint8Array): string {
+	return toHex(bytes);
+}
 
 // Create a hash digest and return it as a lowercase hex string.
 export async function createHash(
@@ -87,7 +99,7 @@ async function importHmacKey(
 	);
 }
 
-// Compute an HMAC digest and return the raw bytes as a Uint8Array. Useful when the result will be used as a key in a derived signing chain (e.g. AWS SigV4).
+// Compute an HMAC digest and return the raw bytes as a Uint8Array. Useful when the result will be used as a key in a derived signing chain  (e.g. AWS Signature V4 key derivation)..
 export async function hmacRaw(
 	secret: string | Uint8Array,
 	data: string | Uint8Array,

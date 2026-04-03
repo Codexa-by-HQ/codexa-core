@@ -470,7 +470,7 @@ function setFnName(fn: unknown, name: string): void {
 }
 
 const log = createLogger('CodexaHttp');
-const httpLog = createLogger('CodexaHttp:Http');
+const httpLog = createLogger('Codexa:Http');
 
 class EntryRegistry {
 	/** Primary store: name -> entry. O(1) lookup by name. */
@@ -1943,8 +1943,8 @@ export class CodexaHttp implements ICodexaHttp {
 	 * Wraps the entire pipeline. Catches any uncaught error, logs it,
 	 * returns a 500 JSON response, and prevents the server from crashing.
 	 */
-	private errorBoundary(): Middleware {
-		return async (ctx, next) => {
+	private errorBoundary(): AppMiddleware {
+		return async (ctx: AppContext, next: AppNext) => {
 			try {
 				await next();
 			} catch (err) {

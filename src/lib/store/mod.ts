@@ -42,7 +42,7 @@ import type {
 	StoreType,
 } from '../../types/app.d.ts';
 
-const log = createLogger('Store');
+const log = createLogger('Codexa:Store');
 
 // ── 1. Memory Store ───────────────────────────────────────────────────────────
 
@@ -87,7 +87,11 @@ class MemoryStore implements IStore {
 		return entry;
 	}
 
-	set(key: string, value: unknown, options?: StoreSetOptions): Promise<string> {
+	set(
+		key: string,
+		value: unknown,
+		options?: StoreSetOptions,
+	): Promise<string> {
 		const ttl = options?.ttl ?? options?.ex;
 		const entry: MemoryEntry = { value };
 		if (ttl && ttl > 0) {
@@ -128,26 +132,18 @@ class MemoryStore implements IStore {
 	ttl(key: string): Promise<number> {
 		const entry = this.getEntry(key);
 		if (!entry) return Promise.resolve(-2);
-		if (!entry.expiresAt) return Promise.resolve(-1);
+		if (entry.expiresAt === undefined) return Promise.resolve(-1);
 		return Promise.resolve(
 			Math.max(0, Math.ceil((entry.expiresAt - Date.now()) / 1000)),
 		);
 	}
 
 	incr(key: string): Promise<number> {
-		const entry = this.getEntry(key);
-		const current = entry ? (Number(entry.value) || 0) : 0;
-		const next = current + 1;
-		this.store.set(key, { value: next, expiresAt: entry?.expiresAt });
-		return Promise.resolve(next);
+		return this.incrby(key, 1);
 	}
 
 	decr(key: string): Promise<number> {
-		const entry = this.getEntry(key);
-		const current = entry ? (Number(entry.value) || 0) : 0;
-		const next = current - 1;
-		this.store.set(key, { value: next, expiresAt: entry?.expiresAt });
-		return Promise.resolve(next);
+		return this.incrby(key, -1);
 	}
 
 	incrby(key: string, amount: number): Promise<number> {
@@ -163,12 +159,13 @@ class MemoryStore implements IStore {
 	}
 
 	keys(pattern: string): Promise<string[]> {
-		const regex = new RegExp(
-			'^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-				.replace(/\*/g, '.*')
-				.replace(/\?/g, '.') +
-				'$',
-		);
+		// const regex = new RegExp(
+		// 	'^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+		// 		.replace(/\*/g, '.*')
+		// 		.replace(/\?/g, '.') +
+		// 		'$',
+		// );
+		const regex = patternToRegex(pattern);
 		const result: string[] = [];
 		for (const [key, entry] of this.store) {
 			if (!this.isExpired(entry) && regex.test(key)) {
@@ -285,7 +282,7 @@ interface KvEntry {
 }
 
 class DenoKvStore implements IStore {
-	private kv: Deno.Kv;
+	private readonly kv: Deno.Kv;
 	private readonly prefix: string;
 	private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 	private readonly cleanupMs: number;
@@ -336,7 +333,7 @@ class DenoKvStore implements IStore {
 
 	async get<T = unknown>(key: string): Promise<T | null> {
 		const result = await this.kv.get<KvEntry>(this.parseKey(key));
-		if (!result.value) return null;
+		if (result.value === null) return null;
 		const entry = result.value;
 		if (entry.expiresAt && entry.expiresAt <= Date.now()) {
 			await this.kv.delete(this.parseKey(key));
@@ -373,7 +370,7 @@ class DenoKvStore implements IStore {
 
 	async expire(key: string, seconds: number): Promise<number> {
 		const result = await this.kv.get<KvEntry>(this.parseKey(key));
-		if (!result.value) return 0;
+		if (result.value === null) return 0;
 		const entry = result.value;
 		if (entry.expiresAt && entry.expiresAt <= Date.now()) {
 			await this.kv.delete(this.parseKey(key));
@@ -388,7 +385,7 @@ class DenoKvStore implements IStore {
 
 	async ttl(key: string): Promise<number> {
 		const result = await this.kv.get<KvEntry>(this.parseKey(key));
-		if (!result.value) return -2;
+		if (result.value === null) return -2;
 		const entry = result.value;
 		if (!entry.expiresAt) return -1;
 		if (entry.expiresAt <= Date.now()) return -2;
@@ -404,17 +401,17 @@ class DenoKvStore implements IStore {
 	}
 
 	async incrby(key: string, amount: number): Promise<number> {
+		// Optimistic concurrency loop - retries until the atomic check passes.
 		while (true) {
 			const result = await this.kv.get<KvEntry>(this.parseKey(key));
-			const current = result.value &&
-					(!result.value.expiresAt ||
-						result.value.expiresAt > Date.now())
-				? (Number(result.value.value) || 0)
-				: 0;
+			const isLive = result.value !== null &&
+				(result.value.expiresAt === undefined ||
+					result.value.expiresAt > Date.now());
+			const current = isLive ? (Number(result.value.value) || 0) : 0;
 			const next = current + amount;
 			const newEntry: KvEntry = {
 				value: next,
-				expiresAt: result.value?.expiresAt,
+				expiresAt: isLive ? result.value.expiresAt : undefined,
 			};
 
 			const op = this.kv.atomic()
@@ -431,12 +428,13 @@ class DenoKvStore implements IStore {
 	}
 
 	async keys(pattern: string): Promise<string[]> {
-		const regex = new RegExp(
-			'^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-				.replace(/\*/g, '.*')
-				.replace(/\?/g, '.') +
-				'$',
-		);
+		// const regex = new RegExp(
+		// 	'^' + pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+		// 		.replace(/\*/g, '.*')
+		// 		.replace(/\?/g, '.') +
+		// 		'$',
+		// );
+		const regex = patternToRegex(pattern);
 		const result: string[] = [];
 		const now = Date.now();
 		const iter = this.kv.list<KvEntry>({ prefix: [this.prefix] });
@@ -445,7 +443,8 @@ class DenoKvStore implements IStore {
 			const actualKey = entry.key[1] as string;
 			const val = entry.value;
 			if (
-				val && (!val.expiresAt || val.expiresAt > now) &&
+				val !== null &&
+				(val.expiresAt === undefined || val.expiresAt > now) &&
 				regex.test(actualKey)
 			) {
 				result.push(actualKey);
@@ -472,6 +471,40 @@ class DenoKvStore implements IStore {
 	}
 }
 
+// ── Shared utilities
+function patternToRegex(pattern: string): RegExp {
+	// Escape every regex metacharacter EXCEPT the glob wildcards and brackets
+	// we intentionally support.
+	let regexStr = '';
+	let i = 0;
+	while (i < pattern.length) {
+		const c = pattern[i];
+		if (c === '*') {
+			regexStr += '.*';
+			i++;
+		} else if (c === '?') {
+			regexStr += '.';
+			i++;
+		} else if (c === '[') {
+			// Find the closing bracket and pass the character class through verbatim
+			const close = pattern.indexOf(']', i + 1);
+			if (close === -1) {
+				// No closing bracket - treat '[' as a literal
+				regexStr += '\\[';
+				i++;
+			} else {
+				regexStr += pattern.slice(i, close + 1);
+				i = close + 1;
+			}
+		} else {
+			// Escape all other regex metacharacters
+			regexStr += c.replace(/[.+^${}()|\\]/g, '\\$&');
+			i++;
+		}
+	}
+	return new RegExp(`^${regexStr}$`);
+}
+
 // ── Store Registry & Lifecycle ────────────────────────────────────────────────
 
 let _store: IStore | null = null;
@@ -486,7 +519,7 @@ let _startedAt = 0;
  * // Memory (default)
  * await initializeStore({});
  *
- * // Redis — pass a pre-connected client
+ * // Redis - pass a pre-connected client
  * await initializeStore({ mode: 'redis', redisClient: redis.getClient() });
  *
  * // Deno KV
@@ -506,6 +539,8 @@ export async function initializeStore(cfg: StoreConfig = {}): Promise<IStore> {
 			return null;
 		}
 		try {
+			// Probe the connection with a PING before committing to the backend
+			await cfg.redisClient.ping();
 			log.info('Store: Redis backend connected');
 			return new RedisStore(cfg.redisClient);
 		} catch (err) {
@@ -619,7 +654,11 @@ export async function getStoreStats(): Promise<StoreStats> {
 /** Close the store and release all resources. */
 export async function closeStore(): Promise<void> {
 	if (!_store) return;
-	await _store.quit();
+	try {
+		await _store.quit();
+	} catch (err) {
+		log.warn('Store: error during close', err);
+	}
 	_store = null;
 	_storeType = 'memory';
 	_startedAt = 0;
@@ -630,7 +669,11 @@ export async function closeStore(): Promise<void> {
 
 /** Use these helpers instead of calling `getStore()` directly. */
 export const store: {
-	set(key: string, value: unknown, options?: StoreSetOptions): Promise<string>;
+	set(
+		key: string,
+		value: unknown,
+		options?: StoreSetOptions,
+	): Promise<string>;
 	get<T = unknown>(key: string): Promise<T | null>;
 	del(...keys: string[]): Promise<number>;
 	exists(...keys: string[]): Promise<number>;
@@ -642,13 +685,19 @@ export const store: {
 	decrby(key: string, amount: number): Promise<number>;
 	keys(pattern: string): Promise<string[]>;
 	flushdb(): Promise<string>;
-	getOrSet<T>(key: string, compute: () => Promise<T>, options?: StoreSetOptions): Promise<T>;
+	getOrSet<T>(
+		key: string,
+		compute: () => Promise<T>,
+		options?: StoreSetOptions,
+	): Promise<T>;
 	delPattern(pattern: string): Promise<number>;
-	mset(entries: Record<string, unknown>, options?: StoreSetOptions): Promise<void>;
+	mset(
+		entries: Record<string, unknown>,
+		options?: StoreSetOptions,
+	): Promise<void>;
 	mget<T = unknown>(keys: string[]): Promise<Map<string, T | null>>;
 } = {
-	set: (key: string, value: unknown, options?: StoreSetOptions): Promise<string> =>
-		getStore().set(key, value, options),
+	set: (key, value, options) => getStore().set(key, value, options),
 
 	get: <T = unknown>(key: string): Promise<T | null> =>
 		getStore().get(key) as Promise<T | null>,
@@ -657,7 +706,8 @@ export const store: {
 
 	exists: (...keys: string[]): Promise<number> => getStore().exists(...keys),
 
-	expire: (key: string, seconds: number): Promise<number> => getStore().expire(key, seconds),
+	expire: (key: string, seconds: number): Promise<number> =>
+		getStore().expire(key, seconds),
 
 	ttl: (key: string): Promise<number> => getStore().ttl(key),
 
@@ -665,9 +715,11 @@ export const store: {
 
 	decr: (key: string): Promise<number> => getStore().decr(key),
 
-	incrby: (key: string, amount: number): Promise<number> => getStore().incrby(key, amount),
+	incrby: (key: string, amount: number): Promise<number> =>
+		getStore().incrby(key, amount),
 
-	decrby: (key: string, amount: number): Promise<number> => getStore().decrby(key, amount),
+	decrby: (key: string, amount: number): Promise<number> =>
+		getStore().decrby(key, amount),
 
 	keys: (pattern: string): Promise<string[]> => getStore().keys(pattern),
 
@@ -707,4 +759,3 @@ export const store: {
 		return new Map(keys.map((k, i) => [k, results[i] as T | null]));
 	},
 };
-

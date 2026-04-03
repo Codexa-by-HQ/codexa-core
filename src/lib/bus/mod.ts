@@ -39,7 +39,7 @@ import type {
 	IEventBus,
 } from '../../types/app.d.ts';
 
-const log = createLogger('EventBus');
+const log = createLogger('Codexa:EventBus');
 
 // deno-lint-ignore no-explicit-any
 type AnyRedisClient = any;
@@ -95,7 +95,9 @@ class EventBus implements IEventBus {
 
 		if (redisClient) {
 			this.redisClient = redisClient;
-			log.info('EventBus: Redis client registered (distributed mode enabled)');
+			log.info(
+				'EventBus: Redis client registered (distributed mode enabled)',
+			);
 		} else {
 			log.info('EventBus: No Redis client — local-only mode');
 		}
@@ -235,7 +237,9 @@ class EventBus implements IEventBus {
 			if (!fullKey && !key.startsWith(`${channel}:`)) continue;
 
 			for (const entry of [...set]) {
-				if (specificHandler && entry.originalHandler !== specificHandler) {
+				if (
+					specificHandler && entry.originalHandler !== specificHandler
+				) {
 					continue;
 				}
 				this.emitter.removeEventListener(key, entry.wrappedHandler);
@@ -304,7 +308,9 @@ class EventBus implements IEventBus {
 
 	/** Subscribe to a Redis channel for cross-process events. */
 	async subscribeRedis(channel: string): Promise<void> {
-		if (!this.isRedisReady() || this.subscribedChannels.has(channel)) return;
+		if (!this.isRedisReady() || this.subscribedChannels.has(channel)) {
+			return;
+		}
 
 		try {
 			if (!this.redisSub) {

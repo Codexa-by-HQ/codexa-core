@@ -3,7 +3,7 @@
  *
  * Managed MongoDB connection factory for `@codexa/core`.
  *
- * @example Standalone (default — no replica set required)
+ * @example Standalone (default - no replica set required)
  * ```ts
  * import { createMongoDatabase } from '@codexa/core/config';
  *
@@ -25,7 +25,7 @@
 import { type Db, MongoClient, type MongoClientOptions } from 'mongodb';
 import { createLogger } from '../utils/logger.ts';
 
-const log = createLogger('MongoDB');
+const log = createLogger('Codexa:MongoDB');
 
 /**
  * Options for {@link createMongoDatabase}.
@@ -56,7 +56,7 @@ export interface MongoDatabaseOptions {
 }
 
 /**
- * A managed MongoDB connection returned by {@link createMongoDatabase}.
+ * A managed/controlled MongoDB connection returned by {@link createMongoDatabase}.
  */
 export interface MongoDatabaseConnection {
 	/** Open the connection. Safe to call multiple times. */
@@ -69,6 +69,38 @@ export interface MongoDatabaseConnection {
 	getClient(): MongoClient;
 	/** True when the server supports multi-document transactions. */
 	supportsTransactions(): boolean;
+}
+
+/**
+ * Safely extract the database name from any MongoDB URI variant:
+ *  - mongodb://host:27017/dbname
+ *  - mongodb://host:27017/dbname?replicaSet=rs0
+ *  - mongodb+srv://user:pass@cluster.mongodb.net/dbname
+ *  - mongodb+srv://user:pass@cluster.mongodb.net/dbname?retryWrites=true&w=majority
+ *  - mongodb://localhost:27017              (no db name → null)
+ *  - mongodb+srv://cluster.mongodb.net      (no db name → null)
+ */
+function extractDbNameFromUri(uri: string): string | null {
+	try {
+		// Normalize both schemes to something the WHATWG URL parser accepts
+		const normalized = uri
+			.replace(/^mongodb\+srv:\/\//i, 'https://')
+			.replace(/^mongodb:\/\//i, 'http://');
+
+		const parsed = new URL(normalized);
+
+		// pathname is either empty, "/", or "/dbname" or "/dbname?..."
+		// strip the leading slash then drop anything after "?"
+		const name = parsed.pathname
+			.replace(/^\//, '') // remove leading slash
+			.split('?')[0] // drop inline query string (edge-case safety)
+			.trim();
+
+		return name.length > 0 ? name : null;
+	} catch {
+		// Malformed URI - let MongoClient surface the real error later
+		return null;
+	}
 }
 
 /**
@@ -128,13 +160,24 @@ export function createMongoDatabase(
 	async function _connect(): Promise<Db> {
 		log.info('Connecting to MongoDB', { dbName, replicaSet });
 
+		//  URI db-name conflict detection
+		const uriDbName = extractDbNameFromUri(uri);
+		if (uriDbName && uriDbName !== dbName) {
+			log.warn(
+				`[createMongoDatabase] Database name conflict: ` +
+					`URI contains "${uriDbName}" but the dbName argument is "${dbName}". ` +
+					`The explicit dbName "${dbName}" will be used. ` +
+					`To silence this warning, remove the database name from the URI.`,
+			);
+		}
+
 		const driverOpts = {
 			minPoolSize,
 			maxPoolSize,
 			serverSelectionTimeoutMS,
 			socketTimeoutMS,
 			connectTimeoutMS,
-			// retryWrites needs replica set — disable for standalone
+			// retryWrites needs replica set - disable for standalone
 			retryWrites: replicaSet,
 			retryReads: true,
 			...clientOptions,
@@ -219,7 +262,7 @@ export function createMongoDatabase(
 				return Promise.resolve(db);
 			}
 			if (_connecting) {
-				log.debug('Connection already in progress — awaiting');
+				log.debug('Connection already in progress - awaiting');
 				return _connecting;
 			}
 			_connecting = _connect().finally(() => {

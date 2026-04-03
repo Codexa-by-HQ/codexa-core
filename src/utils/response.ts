@@ -1,4 +1,5 @@
-import type { Context } from '@oak/oak';
+// import type { Context } from '@oak/oak';
+import type { AppContext as Context } from '../lib/http/mod.ts';
 import type {
 	ApiResponse,
 	PaginatedResponse,
