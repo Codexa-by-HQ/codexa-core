@@ -1248,8 +1248,8 @@ Contributions are welcome! Please follow the existing code style (tabs, single q
 This package is published to [JSR](https://jsr.io/@codexa/core) via the included GitHub Actions workflow. Tag a release with `v*` to trigger an automated publish:
 
 ```bash
-git tag v0.0.4
-git push origin v0.0.4
+git tag v0.0.5
+git push origin v0.0.5
 ```
 
 ---
