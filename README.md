@@ -5,7 +5,7 @@
 [![JSR](https://jsr.io/badges/@codexa/core)](https://jsr.io/@codexa/core)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) 
 
-**`@codexa/core`** provides everything you need to build production-ready Deno backends — HTTP framework, event bus, unified store, caching, storage adapters, type-safe environment config, MongoDB, Redis, cryptography, and more. Each module is available as a standalone subpath import for optimal tree-shaking.
+**`@codexa/core`** provides everything you need to build production-ready Deno backends - HTTP framework, event bus, unified store, caching, storage adapters, type-safe environment config, MongoDB, Redis, cryptography, and more. Each module is available as a standalone subpath import for optimal tree-shaking.
 
 ---
 
@@ -59,7 +59,7 @@ deno add jsr:@codexa/core
 
 ## Subpath Imports
 
-Every module is available via a dedicated subpath — **import only what you need**:
+Every module is available via a dedicated subpath - **import only what you need**:
 
 ```ts
 import { CodexaHttp, Router }   from '@codexa/core/http';
@@ -142,7 +142,7 @@ await app.listen({ port: env.get<number>('PORT') });
 
 A priority-sorted, lifecycle-managed middleware pipeline built on [Oak](https://jsr.io/@oak/oak) with an enterprise plugin system.
 
-> **No need to install `@oak/oak` separately** — `Router` is re-exported from `@codexa/core/http`.
+> **No need to install `@oak/oak` separately** - `Router` is re-exported from `@codexa/core/http`.
 
 #### Creating an App
 
@@ -157,7 +157,7 @@ Each `new CodexaHttp()` creates a **completely isolated instance** with its own 
 ```ts
 const publicApi = new CodexaHttp({ name: 'PublicAPI' });
 const adminApi  = new CodexaHttp({ name: 'AdminAPI' });
-// Completely isolated — separate routes, plugins, state
+// Completely isolated - separate routes, plugins, state
 ```
 
 #### Middleware Registration
@@ -176,12 +176,29 @@ app.use(corsMiddleware(), {
   tags: ['security'],
 });
 
-// With context injection
+// With static context injection (merged into ctx.state before handler runs)
 app.use(tenantResolver, {
   name: 'tenant',
   priority: MiddlewarePriority.AUTH,
   provide: { tenantId: 'default' },
 });
+
+// With dynamic context injection (handler calls ctx.provide(), callback exposes to state)
+app.use(
+  async (ctx, next) => {
+    const tenant = await resolveTenant(ctx.request.headers.get('x-tenant-id')!);
+    ctx.provide({ tenantId: tenant.id, plan: tenant.plan }); // store computed value
+    await next();
+  },
+  {
+    name: 'tenant',
+    priority: MiddlewarePriority.AUTH,
+    provide: (data) => ({
+      tenantId: (data as any).tenantId, // exposed to ctx.state.tenantId
+      plan:     (data as any).plan,
+    }),
+  },
+);
 
 // With lifecycle hooks
 app.use(authParser, {
@@ -285,7 +302,7 @@ app.router('/api/users', usersRouter);
 app.onShutdown(() => db.disconnect());
 app.onShutdown(() => redis.disconnect());
 
-// Boot commits the pipeline — no more registrations after this
+// Boot commits the pipeline - no more registrations after this
 await app.boot(async () => {
   await db.connect();
   await redis.connect();
@@ -307,9 +324,9 @@ await app.listen({ port: 8000, host: '0.0.0.0' });
 
 #### Built-in Middleware (automatic)
 
-- **Error Boundary** — outermost try/catch, returns structured 500 JSON, emits `oak:request:error`
-- **Request Lifecycle** — generates `requestId`, records timing, sets `X-Request-Id` / `X-Response-Time` headers, logs morgan-style HTTP lines
-- **Not-Found Handler** — returns structured 404 JSON for unmatched routes
+- **Error Boundary** - outermost try/catch, returns structured 500 JSON, emits `oak:request:error`
+- **Request Lifecycle** - generates `requestId`, records timing, sets `X-Request-Id` / `X-Response-Time` headers, logs morgan-style HTTP lines
+- **Not-Found Handler** - returns structured 404 JSON for unmatched routes
 
 #### Introspection
 
@@ -325,7 +342,7 @@ console.log(app.size);                 // number of middleware entries
 
 ### Environment Config (`@codexa/core/config`)
 
-Flexible environment management — **you** define the schema, we load and validate.
+Flexible environment management - **you** define the schema, we load and validate.
 
 ```ts
 import { env } from '@codexa/core/config';
@@ -335,7 +352,7 @@ await env.loadEnv({
   // Load multiple .env files (merged left-to-right, system env wins)
   paths: ['.env', '.env.local', '.env.production'],
 
-  // YOUR schema — define exactly what your app needs
+  // YOUR schema - define exactly what your app needs
   schema: zod.object({
     PORT: zod.coerce.number().default(8080),
     NODE_ENV: zod.enum(['development', 'production', 'test']).default('development'),
@@ -360,13 +377,13 @@ env.number('CACHE_TTL', 300);                // number with fallback
 env.list('ALLOWED_ORIGINS');                  // "a,b,c" → ["a", "b", "c"]
 ```
 
-**No .env files needed** — use system env only:
+**No .env files needed** - use system env only:
 
 ```ts
 await env.loadEnv({ loadFiles: false, schema: mySchema });
 ```
 
-**No schema needed** — raw mode:
+**No schema needed** - raw mode:
 
 ```ts
 await env.loadEnv();  // loads .env, no validation
@@ -380,12 +397,12 @@ const val = env.get('MY_VAR');  // string
 ```ts
 import { createMongoDatabase } from '@codexa/core/config';
 
-// Standalone (default) — no replica set required
+// Standalone (default) - no replica set required
 const mongo = createMongoDatabase('mongodb://localhost:27017', 'myapp');
 const db = await mongo.connect();
 // ⚠️ Warning: transactions are NOT available in standalone mode
 
-// Replica Set — enforced, throws if not a replica set
+// Replica Set - enforced, throws if not a replica set
 const mongo = createMongoDatabase(
   'mongodb://localhost:27017/myapp?replicaSet=rs0',
   'myapp',
@@ -466,10 +483,10 @@ redis.getClient().publish('events', JSON.stringify({ type: 'user.created' }));
 
 | Option | Default | Description |
 |---|---|---|
-| `url` | — | Full Redis URL (takes priority) |
+| `url` | - | Full Redis URL (takes priority) |
 | `host` | `'localhost'` | Redis host |
 | `port` | `6379` | Redis port |
-| `password` | — | Redis password |
+| `password` | - | Redis password |
 | `db` | `0` | Redis database index |
 | `keyPrefix` | `'codexa::'` | Key prefix for all commands |
 | `connectTimeoutMS` | `10000` | Connection timeout |
@@ -545,7 +562,7 @@ Unified key-value store with three backends:
 ```ts
 import { initializeStore, store, closeStore } from '@codexa/core/store';
 
-// Memory (default — no dependencies)
+// Memory (default - no dependencies)
 await initializeStore({ mode: 'memory' });
 
 // Redis
@@ -632,7 +649,7 @@ await userCache.flush();
 
 ### Storage (`@codexa/core/storage`)
 
-Unified storage layer with four providers — **S3**, **Cloudinary**, **ImageKit**, and **Local filesystem**.
+Unified storage layer with four providers - **S3**, **Cloudinary**, **ImageKit**, and **Local filesystem**.
 
 ```ts
 import { buildStorageConfig } from '@codexa/core/config';
@@ -676,7 +693,7 @@ const results = await storage.upload([imgBytes, pdfBytes], [
 **Client-side direct upload (recommended for large files):**
 
 ```ts
-// Server endpoint — generates signed credentials
+// Server endpoint - generates signed credentials
 app.post('/upload-token', async (ctx) => {
   const { folder, contentType, assetType } = await ctx.request.body.json();
   const token = await storage.getSignedUploadUrl({
@@ -689,7 +706,7 @@ app.post('/upload-token', async (ctx) => {
   // Returns: { uploadUrl, method, fields?, key, expiresAt, publicUrl? }
 });
 
-// Browser client — uploads directly to provider
+// Browser client - uploads directly to provider
 const token = await fetch('/upload-token', { method: 'POST', ... }).then(r => r.json());
 // For Cloudinary/ImageKit (multipart POST):
 const form = new FormData();
@@ -888,7 +905,7 @@ import { createCache } from '@codexa/core/cache';
 import { createStorageManager } from '@codexa/core/storage';
 import { zod } from '@codexa/core/zod';
 
-// ── Environment ─────────────────────────────────────────────────
+// ── Environment ──
 await env.loadEnv({
   paths: ['.env'],
   schema: zod.object({
@@ -901,7 +918,7 @@ await env.loadEnv({
   }).passthrough(),
 });
 
-// ── Infrastructure ──────────────────────────────────────────────
+// ── Infrastructure ──
 const mongo = createMongoDatabase(
   env.get('MONGODB_URI'),
   env.get('MONGODB_DATABASE'),
@@ -915,7 +932,7 @@ const redis = createRedisConnection({
 const storageConfig = buildStorageConfig(Deno.env.toObject());
 const storage = createStorageManager(storageConfig);
 
-// ── App ─────────────────────────────────────────────────────────
+// ── App ──
 const app = new CodexaHttp({ name: 'MyAPI' });
 
 // Routers
@@ -954,7 +971,7 @@ app.onShutdown(() => mongo.disconnect());
 app.onShutdown(() => redis.disconnect());
 app.onShutdown(() => eventBus.destroy());
 
-// ── Boot ────────────────────────────────────────────────────────
+// ── Boot ──
 await app.boot(async () => {
   await mongo.connect();
   await redis.connect();
@@ -973,77 +990,240 @@ await app.listen({ port: env.get<number>('PORT') });
 
 ## Plugin System
 
-Plugins get a sandboxed scope — they can register routes, middleware, and services, but **cannot** call `boot()`, `listen()`, or `shutdown()`:
+Plugins get a sandboxed scope - they can register routes, middleware, and services, but **cannot** call `boot()`, `listen()`, or `shutdown()`.
+
+### Plugin Metadata
+
+Every plugin declares descriptive metadata. `license` is the only required field:
 
 ```ts
-import type { CodexaPlugin, IPluginScope } from '@codexa/core/http';
+import type { CodexaPlugin } from '@codexa/core/http';
 
 const authPlugin: CodexaPlugin<{ jwtSecret: string }> = {
   name: 'auth',
   version: '1.0.0',
-  metadata: { license: 'MIT' },
-  // dependsOn: ['db-plugin'], // optional dependency declaration
+  metadata: {
+    license: 'MIT',                            // required - SPDX identifier
+    description: 'JWT authentication plugin',  // optional
+    author: 'your-team',                       // optional
+    homepage: 'https://github.com/org/auth',   // optional
+    tags: ['auth', 'security'],                // optional - categorisation
+  },
+  dependsOn: ['db'],  // plugins that must be installed before this one
+
+  install(scope, context, config) { /* ... */ },
+};
+```
+
+### Plugin Dependencies (`dependsOn`)
+
+Declare which plugins must be installed **before** yours via `dependsOn`. The framework:
+- Validates all deps are present at `app.install()` time - throws an actionable error if missing
+- Runs `init()` hooks in **topological order** (deps first) at `boot()`
+- Detects **circular dependencies** and prints the exact cycle path
+
+If `social` **and** `blog` both depend on `auth`, auth is installed and initialised **exactly once**:
+
+```ts
+// auth depends on db
+const authPlugin: CodexaPlugin = {
+  name: 'auth',
+  dependsOn: ['db'],
+  install(scope, context, config) {
+    const db = scope.getService<DbClient>('db', 'client'); // enforced by framework
+    scope.exposeService('jwtVerify', makeVerifier(db));
+  },
+};
+
+// social AND blog both declare auth - auth is resolved once
+const socialPlugin: CodexaPlugin = {
+  name: 'social',
+  dependsOn: ['auth'],
+  install(scope) {
+    const verify = scope.getService<JwtVerify>('auth', 'jwtVerify');
+    scope.get('/social/feed', (ctx) => { /* use verify */ });
+  },
+};
+
+const blogPlugin: CodexaPlugin = {
+  name: 'blog',
+  dependsOn: ['auth'],
+  install(scope) {
+    const verify = scope.getService<JwtVerify>('auth', 'jwtVerify');
+    scope.get('/blog/posts', (ctx) => { /* use verify */ });
+  },
+};
+
+// Install order: deps first
+await app.install(dbPlugin, {}, { connectionString: '...' });
+await app.install(authPlugin, {}, { jwtSecret: 'secret' });
+await app.install(socialPlugin, {}, {});
+await app.install(blogPlugin, {}, {});
+
+// boot() init order: db → auth → social, blog
+await app.boot();
+```
+
+### Plugin Services
+
+Plugins expose typed services; dependants access them via `getService()` or `getDependencyServices()`:
+
+```ts
+// Provider
+const dbPlugin: CodexaPlugin = {
+  name: 'db',
+  install(scope) {
+    const client = new MongoClient();
+    scope.exposeService('client', client);
+    scope.exposeService('ping', () => client.ping());
+  },
+};
+
+// Consumer
+const authPlugin: CodexaPlugin = {
+  name: 'auth',
+  dependsOn: ['db'],
+  install(scope) {
+    // Get one service
+    const client = scope.getService<MongoClient>('db', 'client');
+
+    // Get ALL services from a dep at once
+    const db = scope.getDependencyServices<{
+      client: MongoClient;
+      ping: () => boolean;
+    }>('db');
+
+    if (!db.ping()) throw new Error('DB unreachable');
+  },
+};
+```
+
+### Dependency Scope Helpers
+
+| Method | Returns | Description |
+|---|---|---|
+| `scope.getDependencyNames()` | `string[]` | Copy of this plugin's `dependsOn` |
+| `scope.hasDependency(name)` | `boolean` | `true` if declared **and** installed |
+| `scope.getDependencyServices<T>(name)` | `T` | All services exposed by `name` |
+
+```ts
+install(scope) {
+  // Guard before optional access
+  if (scope.hasDependency('cache')) {
+    const cache = scope.getService<Cache>('cache', 'client');
+  }
+  console.log(scope.getDependencyNames()); // ['db', 'auth']
+}
+```
+
+### Writing a Plugin - Full Example
+
+```ts
+const authPlugin: CodexaPlugin<{ jwtSecret: string }> = {
+  name: 'auth',
+  version: '1.0.0',
+  metadata: { license: 'MIT', description: 'JWT auth', tags: ['security'] },
+  dependsOn: ['db'],
 
   install(scope, context, config) {
     const { jwtSecret } = config!;
+    const db = scope.getService<DbClient>('db', 'client');
 
-    // Async init (runs during boot in dependency order)
+    // Async init - runs during boot() in dependency order
     scope.init(async () => {
-      // Load signing keys, warm caches, etc.
+      await db.connect();
     });
 
-    // Middleware — auto-tagged with 'auth'
+    // Middleware with dynamic provide - scoped under ctx.state['auth'].*
     scope.use(async (ctx, next) => {
       const token = ctx.request.headers.get('authorization');
-      // ... validate token ...
+      const decoded = verifyJwt(token, jwtSecret);
+      ctx.provide({ userId: decoded.sub, role: decoded.role });
       await next();
     }, {
       name: 'tokenValidator',
-      priority: 20,  // AUTH
-      provide: { userId: '', role: '' },
+      priority: 20,
+      provide: (data) => ({
+        userId: (data as any).userId,
+        role:   (data as any).role,
+      }),
     });
 
-    // Services (accessible by sibling plugins)
+    // Expose service for sibling plugins
     scope.exposeService('jwtSecret', jwtSecret);
 
     // Routes
     scope.get('/auth/me', async (ctx) => {
-      ctx.response.body = { ok: true };
+      ctx.response.body = { userId: ctx.state['auth']?.userId };
     });
 
-    // Shutdown hook
-    scope.onShutdown(async () => {
-      // Cleanup plugin resources
-    });
+    // Shutdown
+    scope.onShutdown(async () => db.disconnect());
   },
 };
 
 // Install & boot
 const app = new CodexaHttp({ name: 'MyAPI' });
-await app.install(authPlugin, { db }, { jwtSecret: 'secret' });
+await app.install(dbPlugin, {}, { connectionString: '...' });
+await app.install(authPlugin, {}, { jwtSecret: 'secret' });
 await app.boot();
 ```
 
-**Typed Plugin State** — augment `PluginStateMap` for full autocompletion:
+### Typed Plugin State
+
+Augment `PluginStateMap` for full autocompletion across the codebase:
 
 ```ts
 declare module '@codexa/core/http' {
   interface PluginStateMap {
-    auth: { userId: string; role: string; permissions: string[] };
+    auth: { userId: string; role: string };
+    db:   { client: MongoClient };
   }
 }
 
 // Now fully typed everywhere:
-// ctx.state.auth.userId   ✓ autocompletion
+// ctx.state['auth']?.userId  ✓  autocompletion
+// ctx.state['db']?.client    ✓  autocompletion
+```
+
+### Error Cases
+
+**Missing dependency at install:**
+```
+CodexaHttp: Plugin "social" requires "auth" as a dependency, but "auth" is not installed.
+  Fix: call `await app.install(authPlugin, ...)` before installing "social".
+```
+
+**`getService` without `dependsOn`:**
+```
+CodexaHttp: Plugin "social" is trying to access service "jwtVerify" from "auth",
+but "auth" is not declared in dependsOn.
+  Fix: add "auth" to the dependsOn array of "social": dependsOn: ['auth'].
+```
+
+**Circular dependency detected at boot:**
+```
+CodexaHttp: Circular plugin dependency detected.
+  Cycle: auth → billing → auth
+  Review the dependsOn declarations of the plugins involved and remove the cycle.
+```
+
+**Uninstall with active dependants:**
+```ts
+await app.uninstall('social'); // dependant uninstalled first
+await app.uninstall('auth');   // now safe
+// Without that order:
+// CodexaHttp: Cannot uninstall "auth" - plugin "social" depends on it.
 ```
 
 **Key guarantees:**
-- All registrations are auto-tagged with the plugin name
-- `provide` values are scoped under `ctx.state[pluginName]`
-- Circular dependencies detected via Kahn's topological sort
-- All lookups (plugin, service) are O(1)
-- Plugins can be uninstalled: `await app.uninstall('auth')`
-
+- All registrations are auto-tagged with the plugin name for O(1) tag controls
+- `provide` values (static or function) are scoped under `ctx.state[pluginName]`
+- `getService()` enforces that the target is declared in `dependsOn` - prevents hidden coupling
+- Shared deps (`social` + `blog` both need `auth`) → `auth` initialised exactly once
+- Circular dependency detected with exact cycle path via Kahn + DFS
+- All plugin/service lookups are O(1) via `Map`
+- Plugins are fully removable: `await app.uninstall('auth')`
 ---
 
 ## Author & Organization
@@ -1052,7 +1232,7 @@ declare module '@codexa/core/http' {
 
 ### Author
 
-**Hamza Qureshi** — Founder & Owner of Codexa-by-HQ
+**Hamza Qureshi** - Founder & Owner of Codexa-by-HQ
 
 - 🔗 **GitHub:** [Codexa-by-HQ](https://github.com/Codexa-by-HQ)
 - 💼 **LinkedIn:** [Hamza Qureshi](https://www.linkedin.com/in/hamza-qureshi-871163245/)
@@ -1077,3 +1257,4 @@ git push origin v0.0.4
 ## License
 
 [GPL-3.0-or-later](LICENSE)
+
