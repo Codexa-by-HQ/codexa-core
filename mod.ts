@@ -23,7 +23,7 @@
  * ```
  */
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
+// Utils
 export * from './src/utils/zod.ts';
 export * from './src/utils/logger.ts';
 export * from './src/utils/crypto.ts';
@@ -33,5 +33,5 @@ export * from './src/utils/ttl.ts';
 export * from './src/utils/response.ts';
 export * from './src/utils/parseQueryParams.ts';
 
-// ── Config ────────────────────────────────────────────────────────────────────
+// Config
 export * from './src/config/mod.ts';
