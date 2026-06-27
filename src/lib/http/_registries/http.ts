@@ -1,1395 +1,1461 @@
-import { Application, Middleware, Router } from '@oak/oak';
 import {
-	AppContext,
-	AppMiddleware,
-	AppNext,
-	CodexaPlugin,
-	CodexaPluginContext,
+	addRoute as rou3Add,
+	createRouter as rou3Create,
+	findRoute as rou3Find,
+	routeToRegExp as rou3ToRegExp,
+} from 'rou3';
+import { DEFAULT_VERSION_HEADER } from '../_internals/constants.ts';
+import type {
+	AppListenOptions,
 	Empty,
 	Hook,
+	HookErrorSnapshot,
 	HttpMethod,
 	ICodexaHttp,
-	IVersionedScope,
+	ICodexaPlugin,
+	InspectMiddleware,
+	InspectPlugin,
+	InspectQuery,
+	InspectResult,
+	InspectRoute,
+	InspectService,
+	InstalledPluginInfo,
 	LifeCyclePhase,
-	ListenOptions,
-	MiddlewareEntry,
-	MiddlewarePriority,
-	OakAppState,
-	SafeProvide,
-	UseOptions,
+	PluginServices,
+	RequestErrorHook,
+	RequestHookEvent,
+	RequestSuccessHook,
+	RouteParams,
+	StateShape,
 } from '../mod.ts';
-import { createLogger } from '../../../utils/logger.ts';
-import { eventBus } from '../../bus/mod.ts';
-import { sendInternalError, sendNotFound } from '../../../utils/response.ts';
-import { generateId } from '../../../utils/crypto.ts';
-import { formatDeviceShort } from '../../../utils/device.ts';
+import type {
+	BuiltContext,
+	CommittedRoute,
+	CommittedRouteBucket,
+	MiddlewareRegistration,
+	PluginHost,
+	PluginRecord,
+	PluginScopeSnapshot,
+	Rou3Router,
+	RouteKey,
+	RouteMeta,
+	RoutePathKey,
+	RouteRegistration,
+} from '../_internals/types.ts';
 import {
-	BROWSER_PROBE_PATHS,
-	fnName,
-	injectProvide,
-	priorityLabel,
-	setFnName,
-} from '../helpers.ts';
-import { VersionedRegistry, VersionedScope } from './version.ts';
-import { PluginInstallScope, pluginLog, PluginRegistry } from './plugin.ts';
+	buildCommitRouteIndex,
+	buildCtx,
+	createHtmlResponse,
+	createJsonResponse,
+	createMarkdownResponse,
+	createRedirectResponse,
+	createSendResponse,
+	createStreamResponse,
+	createTextResponse,
+	errorToSnapshot,
+	executeHooksSafe,
+	formatRouteIdentity,
+	frameworkMessage,
+	hasAnyTag,
+	isRou3MatchResult,
+	normalizeName,
+	normalizePath,
+	normalizePluginMetadata,
+	normalizePluginName,
+	normalizeRequestPath,
+	normalizeServiceName,
+	normalizeVersionHeader,
+	responseToSnapshot,
+	routePathKey,
+	routesForMiddleware,
+	setPhase,
+	sortByPriorityAndOrder,
+	toParams,
+	tryNormalizeMethod,
+	uniqueStrings,
+} from '../_internals/helpers.ts';
+import { createPluginScope } from './plugin.ts';
 
-const log = createLogger('CodexaHttp');
-const httpLog = createLogger('Codexa:Http');
-
-class LifecycleManager {
-	private phase: LifeCyclePhase = 'idle';
-	private readonly hooks: Hook[] = [];
-	private abortController: AbortController | null = null;
-	private signalHandler: (() => Promise<void>) | null = null;
-	private listenPromise: Promise<void> | null = null;
-	private listenResolve: (() => void) | null = null;
-	private readonly log = createLogger('CodexaHttp:Lifecycle');
-
-	getPhase(): LifeCyclePhase {
-		return this.phase;
-	}
-
-	assertPhase(expected: LifeCyclePhase, action: string): void {
-		if (this.phase !== expected) {
-			throw new Error(
-				`CodexaHttp: Cannot ${action} from phase "${this.phase}" - expected "${expected}".`,
-			);
-		}
-	}
-
-	transition(next: LifeCyclePhase): void {
-		this.phase = next;
-	}
-
-	addHook(hook: Hook): void {
-		this.hooks.push(hook);
-	}
-
-	registerSignalHandlers(onSignal: () => Promise<void>): void {
-		// Guard: only register once (prevents memory leaks when listen() is called
-		// multiple times in tests).
-		if (this.signalHandler) return;
-
-		this.signalHandler = onSignal;
-		Deno.addSignalListener('SIGINT', this.signalHandler);
-		if (Deno.build.os !== 'windows') {
-			Deno.addSignalListener('SIGTERM', this.signalHandler);
-		}
-	}
-
-	removeSignalHandlers(): void {
-		if (!this.signalHandler) return;
-		Deno.removeSignalListener('SIGINT', this.signalHandler);
-		if (Deno.build.os !== 'windows') {
-			Deno.removeSignalListener('SIGTERM', this.signalHandler);
-		}
-		this.signalHandler = null;
-	}
-
-	createAbortController(): AbortController {
-		this.abortController = new AbortController();
-		return this.abortController;
-	}
-
-	abort(): void {
-		this.abortController?.abort();
-		this.abortController = null;
-	}
-
-	trackListenPromise(): Promise<void> {
-		this.listenPromise = new Promise<void>((res) => {
-			this.listenResolve = res;
+class CodexaHttpApp<InstalledPlugins extends string = never>
+	implements ICodexaHttp<InstalledPlugins> {
+	#phase: LifeCyclePhase = 'idle';
+	#matcher: Rou3Router | undefined;
+	#compiledRoutesMap = new Map<RouteKey, CommittedRoute<StateShape>>();
+	#compiledRouteBuckets = new Map<
+		RoutePathKey,
+		CommittedRouteBucket<StateShape>
+	>();
+	#routesMap = new Map<RouteKey, RouteRegistration<StateShape>>();
+	#routePathKeys = new Set<RoutePathKey>();
+	#middlewaresMap = new Map<number, MiddlewareRegistration<StateShape>>();
+	#middlewareOrder = 0;
+	#disabledTags = new Set<string>();
+	#shutdownHooks: Hook[] = [];
+	#pluginShutdownHooks = new Map<string, Hook[]>();
+	#successHooks: RequestSuccessHook<StateShape>[] = [];
+	#pluginSuccessHooks = new Map<string, RequestSuccessHook<StateShape>[]>();
+	#errorHooks: RequestErrorHook<StateShape>[] = [];
+	#pluginErrorHooks = new Map<string, RequestErrorHook<StateShape>[]>();
+	#installedPlugins = new Set<string>();
+	#installingPlugins = new Set<string>();
+	#pluginRecords = new Map<string, PluginRecord>();
+	#exposedServices = new Map<string, Map<string, unknown>>();
+	#serviceViews = new Map<string, Readonly<Record<string, unknown>>>();
+	#server: Deno.HttpServer | undefined;
+	#stoppedResolve: (() => void) | undefined;
+	#shutdownPromise: Promise<void> | undefined;
+	#bootPromise: Promise<this> | undefined;
+	#committed = false;
+	#dirty = true;
+	#stoppedPromise = new Promise<void>((resolve) => {
+		this.#stoppedResolve = resolve;
+	});
+	#notFoundHandler: (req: Request) => Response | Promise<Response> = () => {
+		return new Response('Not Found', {
+			status: 404,
+			headers: { 'content-type': 'text/plain; charset=utf-8' },
 		});
-		return this.listenPromise;
-	}
-
-	resolveListenPromise(): void {
-		this.listenResolve?.();
-		this.listenResolve = null;
-	}
-
-	whenStopped(): Promise<void> {
-		return this.listenPromise ?? Promise.resolve();
-	}
-
-	/** Run shutdown hooks in reverse registration order (stack unwinding). */
-	async runHooks(): Promise<void> {
-		for (let i = this.hooks.length - 1; i >= 0; i--) {
-			try {
-				await this.hooks[i]();
-			} catch (err) {
-				this.log.error(`Shutdown hook [${i}] failed:`, err);
-			}
-		}
-	}
-}
-
-class EntryRegistry {
-	/** Primary store: name -> entry. O(1) lookup by name. */
-	private readonly store = new Map<string, MiddlewareEntry>();
-
-	/**
-	 * Tag index: tag -> Set of entries that carry that tag.
-	 * Enables O(k) tag-based operations where k = matching entries only.
-	 */
-	private readonly tagIndex = new Map<string, Set<MiddlewareEntry>>();
-
-	/** Monotonic insertion counter for stable sort. */
-	private counter = 0;
-
-	has(name: string): boolean {
-		return this.store.has(name);
-	}
-	add(entry: Omit<MiddlewareEntry, 'order'>): MiddlewareEntry {
-		if (this.store.has(entry.name)) {
-			throw new Error(
-				`CodexaHttp: Duplicate middleware name "${entry.name}". ` +
-					'Provide a unique name via options.name.',
-			);
-		}
-
-		const full: MiddlewareEntry = { ...entry, order: this.counter++ };
-		this.store.set(full.name, full);
-
-		// populate tag index
-		for (const tag of full.tags) {
-			let bucket = this.tagIndex.get(tag);
-			if (!bucket) {
-				bucket = new Set<MiddlewareEntry>();
-				this.tagIndex.set(tag, bucket);
-			}
-			bucket.add(full);
-		}
-		return full;
-	}
-	sorted(): MiddlewareEntry[] {
-		return Array.from(this.store.values()).sort((a, b) =>
-			a.priority !== b.priority
-				? a.priority - b.priority
-				: a.order - b.order
-		);
-	}
-	setEnabledByTags(tags: string[], enabled: boolean): string[] {
-		const updated = new Set<string>();
-		for (const tag of tags) {
-			const bucket = this.tagIndex.get(tag);
-			if (!bucket) continue;
-			for (const entry of bucket) {
-				entry.enabled = enabled;
-				updated.add(entry.name);
-			}
-		}
-		return Array.from(updated);
-	}
-	inspectByTags(
-		tags: string[],
-	): { name: string; priority: string; enabled: boolean; tags: string[] }[] {
-		const seen = new Set<string>();
-		const result: {
-			name: string;
-			priority: string;
-			enabled: boolean;
-			tags: string[];
-		}[] = [];
-		for (const tag of tags) {
-			const bucket = this.tagIndex.get(tag);
-			if (!bucket) continue;
-			for (const entry of bucket) {
-				if (seen.has(entry.name)) continue;
-				seen.add(entry.name);
-				result.push({
-					name: entry.name,
-					priority: priorityLabel(entry.priority),
-					enabled: entry.enabled,
-					tags: entry.tags,
-				});
-			}
-		}
-		return result;
-	}
-	inspectAll(): {
-		name: string;
-		priority: string;
-		order: number;
-		enabled: boolean;
-		tags: string[];
-	}[] {
-		return this.sorted()
-			.filter((entry) => !entry.name.startsWith('__')) // exclude internal methods for inspection purpose only
-			.map((entry) => {
-				return {
-					name: entry.name,
-					priority: priorityLabel(entry.priority),
-					order: entry.order,
-					enabled: entry.enabled,
-					tags: entry.tags,
-				};
-			});
-	}
-
-	get size() {
-		return this.store.size;
-	}
-	get currentOrder(): number {
-		return this.counter;
-	}
-}
-
-/**
- * Options for creating a {@link CodexaHttp} instance.
- */
-export interface CodexaHttpOptions {
-	/**
-	 * Application name. Used in log output and for isolation when running
-	 * multiple CodexaHttp instances.
-	 *
-	 * @default 'CodexaApp'
-	 */
-	name?: string;
-}
-
-export class CodexaHttp implements ICodexaHttp {
-	private readonly app: Application<OakAppState>;
-	private readonly entries: EntryRegistry;
-	private readonly versioned: VersionedRegistry;
-	private readonly lifecycle: LifecycleManager;
-	private readonly plugins: PluginRegistry;
-
-	private readonly _methodRouter: Router;
-	private _methodRouterRegistered: boolean = false;
-
-	/** Application name for logging and identification. */
-	public readonly name: string;
-
-	#committed: boolean = false;
-
-	constructor(options?: CodexaHttpOptions) {
-		this.name = options?.name ?? 'CodexaApp';
-		this.app = new Application<OakAppState>();
-		this.entries = new EntryRegistry();
-		this.versioned = new VersionedRegistry();
-		this.lifecycle = new LifecycleManager();
-		this.plugins = new PluginRegistry();
-		this._methodRouter = new Router();
-
-		// Bind Oak's native error event immediately.
-		this.app.addEventListener('error', (e) => {
-			const error = e.error instanceof Error
-				? e.error
-				: new Error(String(e.error ?? 'Unknown error'));
-			log.error(`[${this.name}] Uncaught Oak error:`, { error });
-			eventBus.emit('oak', 'error', {
-				error,
-				app: this.name,
-				message: error.message,
-				stack: error.stack,
-			}, { distributed: false });
+	};
+	#errorHandler: (
+		err: unknown,
+		req: Request,
+	) => Response | Promise<Response> = (err) => {
+		frameworkMessage('error', 'Unhandled request error.', err, false);
+		return new Response('Internal Server Error', {
+			status: 500,
+			headers: { 'content-type': 'text/plain; charset=utf-8' },
 		});
+	};
+	readonly #pluginHost: PluginHost = Object.freeze({
+		exposeService: (
+			pluginName: string,
+			serviceName: string,
+			service: unknown,
+		) => this.#exposeService(pluginName, serviceName, service),
+		readService: <
+			Name extends string,
+			ServiceName extends keyof PluginServices<Name> & string,
+		>(
+			pluginName: Name,
+			serviceName: ServiceName,
+		) => this.#readService(pluginName, serviceName),
+		readServices: <Name extends string>(pluginName: Name) =>
+			this.#readServices(pluginName),
+		addShutdownHook: (pluginName: string, hook: Hook) =>
+			this.#addPluginShutdownHook(pluginName, hook),
+		addSuccessHook: <StateExt extends StateShape>(
+			pluginName: string,
+			hook: RequestSuccessHook<StateExt>,
+		) => this.#addPluginSuccessHook(pluginName, hook),
+		addErrorHook: <StateExt extends StateShape>(
+			pluginName: string,
+			hook: RequestErrorHook<StateExt>,
+		) => this.#addPluginErrorHook(pluginName, hook),
+		hasPlugin: (name: string) => this.hasPlugin(name),
+		hasService: (pluginName: string, serviceName: string) =>
+			this.hasService(pluginName, serviceName),
+	});
+
+	constructor(name?: string) {
+		normalizeName(name);
 	}
 
-	// ***************** Private Helpers ********************
-	private assertNotCommitted(action: string): void {
-		if (this.#committed) {
-			throw new Error(
-				`CodexaHttp: Cannot ${action} after middleware has been committed. ` +
-					'Register all middleware before calling boot().',
+	public json(data: unknown, init?: ResponseInit): Response {
+		return createJsonResponse(data, init);
+	}
+
+	public text(data: string, init?: ResponseInit): Response {
+		return createTextResponse(data, init);
+	}
+
+	public html(data: string, init?: ResponseInit): Response {
+		return createHtmlResponse(data, init);
+	}
+
+	public markdown(content: string, init?: ResponseInit): Response {
+		return createMarkdownResponse(content, init);
+	}
+
+	public redirect(url: string, status?: 301 | 302 | 307 | 308): Response {
+		return createRedirectResponse(url, status);
+	}
+
+	public stream(
+		body: ReadableStream<Uint8Array>,
+		init?: ResponseInit,
+	): Response {
+		return createStreamResponse(body, init);
+	}
+
+	public send(body?: BodyInit | null, init?: ResponseInit): Response {
+		return createSendResponse(body, init);
+	}
+
+	public install<const Name extends string, Deps extends string>(
+		plugin: ICodexaPlugin<Name, void, Deps>,
+	): ICodexaHttp<InstalledPlugins | Name>;
+	public install<const Name extends string, Config, Deps extends string>(
+		plugin: ICodexaPlugin<Name, Config, Deps>,
+		config: Config,
+	): ICodexaHttp<InstalledPlugins | Name>;
+	public install<const Name extends string, Config, Deps extends string>(
+		plugin: ICodexaPlugin<Name, Config, Deps>,
+		config?: Config,
+	): ICodexaHttp<InstalledPlugins | Name> {
+		this.#assertNotCommitted('install plugins');
+		const pluginName = normalizePluginName(plugin.name);
+		if (this.#installedPlugins.has(pluginName)) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" is already installed.`,
 			);
 		}
-	}
-
-	/**
-	 * Derive a stable auto-name from a function or Router.
-	 * Falls back to a counter-based name when the function is anonymous.
-	 */
-	private autoName<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P> | Router,
-		prefix: string,
-	): string {
-		if (
-			!(item instanceof Router) &&
-			item.name &&
-			item.name !== '' &&
-			item.name !== 'mw_'
-		) {
-			return item.name;
-		}
-		return `${prefix}_${this.entries.currentOrder}`;
-	}
-
-	/**
-	 * Wrap a raw handler with provide injection + onSuccess/onError lifecycle.
-	 * Returns a new AppMiddleware; does not mutate the original.
-	 *
-	 * Static provide: merged into ctx.state BEFORE the handler runs.
-	 * Dynamic provide (function): ctx.provide() is injected onto ctx so the
-	 *   handler can call it; after the handler resolves the callback is invoked
-	 *   with the stored slot value and the result is merged into ctx.state.
-	 */
-	private wrapHandler<P extends SafeProvide = Empty>(
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): AppMiddleware {
-		const provide = options?.provide;
-		const onSuccess = options?.onSuccess;
-		const onError = options?.onError;
-
-		// Fast path: nothing to wrap -> return as-is (avoids an extra async frame).
-		// Note: a function provide always requires wrapping.
-		const hasStaticProvide = provide !== null && provide !== undefined &&
-			typeof provide !== 'function' &&
-			Object.keys(provide as object).length > 0;
-		const hasDynamicProvide = typeof provide === 'function';
-		if (!hasStaticProvide && !hasDynamicProvide && !onSuccess && !onError) {
-			// Still need to attach ctx.provide as a safe no-op so handlers can
-			// always call it without guarding for existence.
-			const bare: AppMiddleware = async (
-				ctx: AppContext,
-				next: AppNext,
-			) => {
-				injectProvide(ctx, undefined);
-				await (handler as AppMiddleware)(ctx, next);
-			};
-			return bare;
-		}
-
-		const wrapped: AppMiddleware = async (
-			ctx: AppContext,
-			next: AppNext,
-		) => {
-			// Inject ctx.provide() and get the post-handler flush function.
-			const flush = injectProvide(
-				ctx,
-				provide as P | ((data: unknown) => P) | undefined,
-			);
-
-			// Static provide: merge into state BEFORE the handler so it sees the values.
-			if (hasStaticProvide) {
-				Object.assign(ctx.state, provide);
-			}
-			try {
-				await (handler as AppMiddleware)(ctx, next);
-				// Dynamic provide: flush after handler resolves.
-				flush();
-				if (onSuccess) await onSuccess(ctx as AppContext<P>); // success handler
-			} catch (err) {
-				flush(); // cleanup slot even on error
-				if (onError) { // error handler
-					await onError(ctx as AppContext<P>, err);
-				} else {
-					throw err;
-				}
-			}
-		};
-		return wrapped;
-	}
-
-	/**
-	 * Core registration: wraps the handler and inserts into EntryRegistry.
-	 */
-	private pushEntry<P extends SafeProvide = Empty>(
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-		fallbackName?: string,
-	): this {
-		const name = options?.name ?? fallbackName ??
-			this.autoName(handler, 'mw');
-		const priority = options?.priority ?? MiddlewarePriority.BUSINESS;
-		const enabled = options?.enabled ?? true;
-		const tags = options?.tags ?? [];
-
-		const wrappedHandler = this.wrapHandler(handler, options); // wrap handler with provide injection + onSuccess/onError lifecycle
-
-		// add to entry registry
-		this.entries.add({
-			name,
-			priority,
-			handler: wrappedHandler,
-			tags,
-			enabled,
-		});
-		log.debug(
-			`Registered middleware: "${name}" [${priorityLabel(priority)}]`,
-		);
-		return this;
-	}
-
-	/**
-	 * Register an Oak Router into the pipeline.
-	 * Extracts .routes() + .allowedMethods() and pushes both as separate entries
-	 * so they appear individually in inspect() output.
-	 */
-	private useRouter<P extends SafeProvide = Empty>(
-		routerInstance: Router,
-		options?: UseOptions<P>,
-	): this {
-		const baseName = options?.name ?? `router_${this.entries.currentOrder}`;
-		const priority = options?.priority ?? MiddlewarePriority.BUSINESS;
-		const enabled = options?.enabled ?? true;
-		const tags = options?.tags ?? [];
-		const provide = options?.provide;
-		const onSuccess = options?.onSuccess;
-		const onError = options?.onError;
-
-		const routesName = `${baseName}:routes`;
-		const methodsName = `${baseName}:allowedMethods`;
-
-		if (
-			this.entries.has(routesName) || this.entries.has(methodsName)
-		) {
-			throw new Error(
-				`CodexaHttp: Duplicate router name "${baseName}". ` +
-					'Provide a unique name via options.name.',
+		if (this.#installingPlugins.has(pluginName)) {
+			frameworkMessage(
+				'error',
+				`Circular plugin installation detected for "${pluginName}".`,
 			);
 		}
-
-		// Determine static vs dynamic provide once (not per request).
-		const hasStaticProvide = provide !== null && provide !== undefined &&
-			typeof provide !== 'function' &&
-			Object.keys(provide as object).length > 0;
-
-		// Wrap .routes() with provide/onSuccess/onError lifecycle hooks.
-		const rawRoutes = routerInstance.routes() as AppMiddleware;
-		const wrappedRoutes: AppMiddleware = async (
-			ctx: AppContext,
-			next: AppNext,
-		) => {
-			// Inject ctx.provide() and get the post-handler flush function.
-			const flush = injectProvide(
-				ctx,
-				provide as P | ((data: unknown) => P) | undefined,
-			);
-			// Static provide: merge before handler.
-			if (hasStaticProvide) {
-				Object.assign(ctx.state, provide);
-			}
-			try {
-				await rawRoutes(ctx, next);
-				// Dynamic provide: flush after handler resolves.
-				flush();
-				if (onSuccess) await onSuccess(ctx as AppContext<P>); // success handler
-			} catch (err) {
-				flush(); // cleanup slot even on error
-				if (onError) { // error handler
-					await onError(ctx as AppContext<P>, err);
-				} else {
-					throw err;
-				}
-			}
-		};
-
-		this.entries.add({
-			name: routesName,
-			priority,
-			handler: wrappedRoutes,
-			tags,
-			enabled,
-		});
-
-		// .allowedMethods() is a pure HTTP 405 responder - no lifecycle hooks needed.
-		this.entries.add({
-			name: methodsName,
-			priority,
-			handler: routerInstance.allowedMethods() as AppMiddleware,
-			tags,
-			enabled,
-		});
-
-		log.debug(
-			`Registered router: "${baseName}" [${priorityLabel(priority)}]`,
-		);
-		return this;
-	}
-
-	/**
-	 * Register an HTTP-method shortcut route onto the single shared _methodRouter.
-	 *
-	 * Each route gets a thin per-request wrapper that handles:
-	 *   - runtime enabled check    (tags can toggle this at any time)
-	 *   - provide injection        (ctx.state extension)
-	 *   - onSuccess / onError hooks
-	 *
-	 * The shared _methodRouter is registered into EntryRegistry exactly once
-	 * (on first use) so it appears in inspect() output.
-	 */
-	private addMethodRoute<P extends SafeProvide = Empty>(
-		method: HttpMethod,
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		this.assertNotCommitted(`${method.toLowerCase()}()`);
-
-		const name = options?.name ?? `${method}:${path}`;
-		const provide = options?.provide;
-		const onSuccess = options?.onSuccess;
-		const onError = options?.onError;
-		const tags = options?.tags ?? [];
-
-		// Determine static vs dynamic provide once (not per request).
-		const hasStaticProvide = provide !== null && provide !== undefined &&
-			typeof provide !== 'function' &&
-			Object.keys(provide as object).length > 0;
-
-		// Guard against duplicate route names before touching any state.
-		if (this.entries.has(name)) {
-			throw new Error(
-				`CodexaHttp: Duplicate route name "${name}". ` +
-					'Provide a unique name via options.name.',
-			);
-		}
-
-		/** Sentinel entry -> carries tags + enabled so tag control methods work on individual routes. The handler is intentionally a no-op pass through, the real dispatch happens inside the shared _methodRouter via the wrapper below. isSentinal:true tell the #commit() to skip flushing this to Oak. simply its a dummy entry use to control configurations of each route.*/
-		const sentinel: AppMiddleware = async (
-			_ctx: AppContext,
-			next: AppNext,
-		) => {
-			await next();
-		};
-		setFnName(sentinel, name);
-
-		const priority = options?.priority ?? MiddlewarePriority.BUSINESS;
-		const sentinelEntry = this.entries.add({
-			name,
-			priority,
-			handler: sentinel,
-			tags,
-			enabled: options?.enabled ?? true,
-			isSentinel: true,
-		});
-
-		/** The real per-route handler. Closes over sentinelEntry so it reads the live enabled flag that tag controls may flip at runtime. */
-		const wrappedHandler: AppMiddleware<P> = async (
-			ctx: AppContext<P>,
-			next: AppNext,
-		) => {
-			// Mirror the sentinel's live enabled flag at request time.
-			if (!sentinelEntry?.enabled) {
-				await next();
-				return;
-			}
-			// Inject ctx.provide() and get the post-handler flush function.
-			const flush = injectProvide(
-				ctx as unknown as AppContext,
-				provide as P | ((data: unknown) => P) | undefined,
-			);
-			// Static provide: merge into state BEFORE the handler.
-			if (hasStaticProvide) {
-				Object.assign(ctx.state, provide);
-			}
-			// run handler
-			try {
-				await (handler as AppMiddleware<P>)(ctx, next);
-				// Dynamic provide: flush after handler resolves.
-				flush();
-				// run onSuccess if provided
-				if (onSuccess) {
-					await onSuccess(ctx);
-				}
-			} catch (error) {
-				flush(); // cleanup slot even on error
-				// run onError if provided
-				if (onError) {
-					await onError(ctx, error);
-				} else {
-					// otherwise rethrow to let Oak handle it
-					throw error;
-				}
-			}
-		};
-
-		const methodLower = method.toLowerCase() as
-			| 'get'
-			| 'post'
-			| 'put'
-			| 'delete'
-			| 'patch';
-		// Cast to Middleware: AppMiddleware requires ctx.provide() but Oak provides plain Context.
-		// injectProvide() attaches .provide() at runtime before user code runs — safe cast.
-		this._methodRouter[methodLower](
-			path,
-			wrappedHandler as unknown as Middleware,
-		); // registering route in oak router not executing yet, execution happen in #commit() when oak router is flushed to oak app
-
-		/** Register the shared _methodRouter into EntryRegistry on first use. This ensures it appears in inspect() and is flushed to Oak during #commit() - but only once, no matter how many routes are added.*/
-		if (!this._methodRouterRegistered) {
-			this._methodRouterRegistered = true;
-			/** Register at BUSINESS priority so it interleaves correctly with any user-registered middleware. The sentinel entries above carry each route's individual priority for inspect() purposes.*/
-			this.entries.add({
-				name: '__methodRouter:routes',
-				priority: MiddlewarePriority.BUSINESS,
-				handler: this._methodRouter.routes() as AppMiddleware,
-				tags: [],
-				enabled: true,
-			});
-			this.entries.add({
-				name: '__methodRouter:allowedMethods',
-				priority: MiddlewarePriority.BUSINESS,
-				handler: this._methodRouter.allowedMethods() as AppMiddleware,
-				tags: [],
-				enabled: true,
-			});
-		}
-
-		log.debug(
-			`Registered route: "${name}" [${priorityLabel(priority)}]`,
-		);
-		return this;
-	}
-
-	// ***************** Built-in Middlewares ********************
-	/**
-	 * Error Boundary - outermost middleware.
-	 * Wraps the entire pipeline. Catches any uncaught error, logs it,
-	 * returns a 500 JSON response, and prevents the server from crashing.
-	 */
-	private errorBoundary(): Middleware<OakAppState> {
-		return async (ctx, next) => {
-			try {
-				await next();
-			} catch (err) {
-				const error = err instanceof Error
-					? err
-					: new Error(String(err));
-
-				log.error('Unhandled request error:', {
-					method: ctx.request.method,
-					url: ctx.request.url.pathname,
-					error: error.message,
-					stack: error.stack,
-				});
-
-				eventBus.emit('oak', 'request:error', {
-					error,
-					method: ctx.request.method,
-					path: ctx.request.url.pathname,
-					requestId: ctx.state.requestId,
-				}, { distributed: false });
-
-				if (!ctx.response.writable) return;
-				sendInternalError(ctx as unknown as AppContext);
-			}
-		};
-	}
-
-	/**
-	 * Request Lifecycle - pre/post flow middleware.
-	 *
-	 * PRE  (before next): generate requestId, record start time.
-	 * HANDLER: await next() - business logic executes.
-	 * POST (after next): calculate duration, set response headers,
-	 *                    emit morgan-style HTTP log line.
-	 */
-	private requestLifecycle(): Middleware<OakAppState> {
-		return async (ctx, next) => {
-			// PRE
-			const requestId = generateId();
-			const startTime = performance.now();
-
-			ctx.state.requestId = requestId;
-			ctx.state.startTime = startTime;
-
-			const deviceShort = ctx.state.device
-				? formatDeviceShort(ctx.state.device)
-				: 'unknown';
-
-			// HANDLER
-			await next();
-
-			// POST
-			const durationMs = performance.now() - startTime;
-			const durationStr = durationMs.toFixed(2);
-
-			ctx.response.headers.set('X-Request-Id', requestId);
-			ctx.response.headers.set('X-Response-Time', `${durationStr}ms`);
-
-			const { method, url, headers, ip } = ctx.request;
-			const path = url.pathname;
-			const search = url.search || '';
-			const status = ctx.response.status;
-
-			// Size estimation - avoids JSON.stringify on object bodies.
-			const clHeader = headers.get('Content-Length');
-			let sizeStr: string;
-			if (clHeader) {
-				sizeStr = `${clHeader}b`;
-			} else {
-				const body = ctx.response.body;
-				if (body === null) {
-					sizeStr = '0b';
-				} else if (typeof body === 'string') {
-					sizeStr = `${body.length}b`;
-				} else if (body instanceof Uint8Array) {
-					sizeStr = `${body.byteLength}b`;
-				} else {
-					sizeStr = '-';
-				}
-			}
-
-			const logLine =
-				`-> ${method} ${path}${search} ${status} ${durationStr}ms ${sizeStr} ${ip} rid:${requestId} [${deviceShort}]`;
-
-			if (
-				BROWSER_PROBE_PATHS.has(path) ||
-				path.startsWith('/.well-known/')
-			) {
-				httpLog.debug(logLine);
-			} else if (status >= 500) {
-				httpLog.error(logLine);
-			} else if (status >= 400) {
-				httpLog.warn(logLine);
-			} else {
-				httpLog.info(logLine);
-			}
-		};
-	}
-
-	/**
-	 * Not-Found handler - sits at the very end of the pipeline.
-	 * Returns a structured JSON 404 when no middleware has set a response body.
-	 */
-	private notFoundMiddleware(): Middleware<OakAppState> {
-		return async (ctx, next) => {
-			await next();
-			if (ctx.response.status === 404) {
-				sendNotFound(
-					ctx as unknown as AppContext,
-					`Route not found: ${ctx.request.method} ${ctx.request.url.pathname}`,
+		const dependsOn = uniqueStrings(plugin.dependsOn);
+		for (const dependency of dependsOn) {
+			if (!this.#installedPlugins.has(dependency)) {
+				frameworkMessage(
+					'error',
+					`Plugin "${pluginName}" requires "${dependency}" to be installed first.`,
 				);
 			}
-		};
-	}
-
-	// ****************** Public API Http Methods Shortcuts/use/router etc.. ********************
-	get<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		return this.addMethodRoute('GET', path, handler, options);
-	}
-	post<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		return this.addMethodRoute('POST', path, handler, options);
-	}
-	put<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		return this.addMethodRoute('PUT', path, handler, options);
-	}
-	delete<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		return this.addMethodRoute('DELETE', path, handler, options);
-	}
-	patch<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		return this.addMethodRoute('PATCH', path, handler, options);
-	}
-	/**
-	 * Register middleware or a Router.
-	 *
-	 * Accepts:
-	 * - AppMiddleware (typed middleware function)
-	 * - Router (Oak Router; .routes() + .allowedMethods() extracted automatically)
-	 */
-	use<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P> | Router,
-		options?: UseOptions<P>,
-	): this {
-		this.assertNotCommitted('use()');
-		if (item instanceof Router) return this.useRouter(item, options);
-		return this.pushEntry(item, options); //
-	}
-	/**
-	 * Mount a router under a path prefix.
-	 *
-	 * Example:
-	 *   app.router('/users', usersRouter)
-	 */
-	router<P extends SafeProvide = Empty>(
-		prefix: string,
-		routerInstance: Router,
-		options?: Omit<UseOptions<P>, 'name'>,
-	): this {
-		this.assertNotCommitted('router()');
-		const name = `route:${prefix}`;
-		const wrapper = new Router();
-		wrapper.use(prefix, routerInstance.routes());
-		wrapper.use(prefix, routerInstance.allowedMethods());
-		return this.use(
-			wrapper,
-			{ ...options, name } as UseOptions<P>,
-		);
-	}
-	/**
-	 * Register a middleware group.
-	 * All items share the same priority and options.
-	 */
-	group<P extends SafeProvide = Empty>(
-		groupName: string,
-		items: Array<AppMiddleware<P> | Router>,
-		options?: UseOptions<P>,
-	): this {
-		this.assertNotCommitted('group()');
-
-		for (let i = 0; i < items.length; i++) {
-			const entry = items[i];
-			const entryName = `${groupName}:${
-				entry instanceof Router
-					? `router_${i}`
-					: fnName(entry) !== 'anonymous'
-					? fnName(entry)
-					: i
-			}`;
-
-			if (entry instanceof Router) {
-				this.use(entry, {
-					...options,
-					name: entryName,
-				} as UseOptions<P>);
-			} else {
-				this.pushEntry(entry, {
-					...options,
-					name: entryName,
-				} as UseOptions<P>);
-			}
 		}
 
-		log.debug(`Registered group: "${groupName}" (${items.length} items)`);
-		return this;
-	}
-	/**
-	 * Register middleware that only runs when the runtime condition returns true.
-	 * The condition is evaluated per-request (differs from `enabled: false`
-	 * which is a registration-time flag).
-	 */
-	useIf<P extends SafeProvide = Empty>(
-		condition: (ctx: AppContext<P>) => boolean | Promise<boolean>,
-		item: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		this.assertNotCommitted('useIf()');
-
-		const conditionalHandler: AppMiddleware = async (
-			ctx: AppContext,
-			next: AppNext,
-		): Promise<void> => {
-			const shouldRun = await condition(ctx as AppContext<P>);
-			if (shouldRun) {
-				await (item as AppMiddleware)(ctx, next);
-			} else {
-				await next();
-			}
-		};
-
-		setFnName(
-			conditionalHandler,
-			options?.name ?? `useIf:${fnName(item)}`,
-		);
-		return this.pushEntry(
-			conditionalHandler as AppMiddleware<P>,
-			options,
-		);
-	}
-
-	/**
-	 * Wrap a middleware with per-middleware error handling (try/catch).
-	 * Errors are caught, logged, and either handled via onError or a 500 is returned.
-	 * The server stays alive.
-	 */
-	useSafe<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this {
-		this.assertNotCommitted('useSafe()');
-
-		const safeHandler: AppMiddleware = async (
-			ctx: AppContext,
-			next: AppNext,
-		): Promise<void> => {
-			try {
-				await (item as AppMiddleware)(ctx, next);
-			} catch (err) {
-				const middlewareName = options?.name ?? fnName(item);
-				const error = err instanceof Error
-					? err
-					: new Error(String(err));
-
-				log.error(
-					`[useSafe] Middleware error in "${middlewareName}": ${error.message}`,
-					err,
-				);
-
-				eventBus.emit('oak', 'middleware:error', {
-					error,
-					middleware: middlewareName,
-					method: ctx.request.method,
-					path: ctx.request.url.pathname,
-					requestId: ctx.state.requestId,
-				}, { distributed: false });
-
-				if (options?.onError) {
-					await options.onError(ctx as AppContext<P>, err);
-					return;
-				}
-
-				sendInternalError(ctx);
-			}
-		};
-
-		setFnName(safeHandler, options?.name ?? `useSafe:${fnName(item)}`);
-		return this.pushEntry(
-			safeHandler as AppMiddleware<P>,
-			options,
-		);
-	}
-	// ****************** Public API (versioning) cont.. ********************
-	/**
-	 * Create a versioned scope. Routes registered through this scope
-	 * require the `X-Version` header to exactly match the version string.
-	 *
-	 * @example
-	 * app.version('1.0.0').get('/api/users', listUsersV1);
-	 * app.version('2.0.0').get('/api/users', listUsersV2);
-	 */
-	version(v: string): IVersionedScope {
-		this.assertNotCommitted('version()');
-		return new VersionedScope(v, this.versioned);
-	}
-	// ****************** Public API (tags controls) cont.. ********************
-	/**
-	 * Disable all middleware/routes that carry ANY of the given tags.
-	 * O(k) where k = number of matching entries - does not walk the full pipeline.
-	 */
-	disableByTags(...tags: string[]): this {
-		const updated = this.entries.setEnabledByTags(tags, false);
-		this.versioned.setEnabledByTags(tags, false);
-		log.info(
-			`Disabled [${updated.join(', ')}] by tags: [${tags.join(', ')}]`,
-		);
-		return this;
-	}
-
-	/**
-	 * Enable all middleware/routes that carry ANY of the given tags.
-	 * O(k) where k = number of matching entries - does not walk the full pipeline.
-	 */
-	enableByTags(...tags: string[]): this {
-		const updated = this.entries.setEnabledByTags(tags, true);
-		this.versioned.setEnabledByTags(tags, true);
-		log.info(
-			`Enabled [${updated.join(', ')}] by tags: [${tags.join(', ')}]`,
-		);
-		return this;
-	}
-	/**
-	 * Inspect all middleware/routes associated with the given tags.
-	 * O(k) where k = number of matching entries.
-	 */
-	inspectByTags(
-		...tags: string[]
-	): { name: string; priority: string; enabled: boolean; tags: string[] }[] {
-		return [
-			...this.entries.inspectByTags(tags),
-			...this.versioned.inspectByTags(tags),
-		];
-	}
-	// ****************** Public API (shutdown hooks) cont.. ********************
-	onShutdown(hook: Hook): this {
-		this.lifecycle.addHook(hook);
-		return this;
-	}
-
-	// ****************** Commit (private) ********************
-
-	/**
-	 * Sort entries, inject built-ins, build versioned router, flush to Oak.
-	 * Called exactly once by boot(). After commit, no registrations allowed.
-	 */
-	#commit() {
-		if (this.#committed) return;
-		this.#committed = true;
-
-		// 1. Sort user entries by (priority ASC, order ASC).
-		const sorted = this.entries.sorted();
-
-		// 2. Build the versioned-route dispatcher (null when nothing registered).
-		const versionedRouter = this.versioned.buildRouter();
-
-		// 3. Assemble the final pipeline:
-		//    errorBoundary -> requestLifecycle
-		//    -> user entries (runtime enabled check per entry)
-		//    -> versionedRouter (if any)
-		//    -> notFound
-		this.app.use(this.errorBoundary());
-		this.app.use(this.requestLifecycle());
-
-		for (const entry of sorted) {
-			// Skip sentinel entries - they are tag-control bookmarks for HTTP-method
-			// shortcut routes registered on the shared _methodRouter. Their handlers
-			// are no-op pass-throughs; the real dispatch lives inside _methodRouter
-			// which is already flushed to Oak via its own __methodRouter:* entries.
-			if (entry.isSentinel) continue;
-
-			const entryRef = entry;
-			// Plain Oak Middleware — ctx.provide() is injected by wrapHandler/injectProvide
-			// before user handlers run, so the Oak-level enabledWrapper doesn't need it.
-			const enabledWrapper: Middleware<OakAppState> = async (
-				ctx,
-				next,
-			) => {
-				// this check works only when user use "app.use" not when user use "app.get" or "app.post" etc
-				if (!entryRef.enabled) {
-					await next();
-					return;
-				}
-
-				/** for "app.get" or "app.post" etc we have to use this check that is available inside this handler wrapper so for shortcut methods the flow is like this
-                 *
-                 * entryRef.handler(ctx, next)
-                    -> _methodRouter.routes() dispatches based on path/method write in addMethodRoute
-                        -> wrappedHandler(ctx, next)  ← the real logic lives here which hold enabled and other options references.
-                 */
-				await entryRef.handler(ctx as unknown as AppContext, next);
-			};
-			this.app.use(enabledWrapper);
-		}
-
-		if (versionedRouter) {
-			this.app.use(versionedRouter.routes() as unknown as Middleware);
-			this.app.use(
-				versionedRouter.allowedMethods() as unknown as Middleware,
-			);
-		}
-
-		this.app.use(this.notFoundMiddleware());
-
-		log.info(
-			`Pipeline committed: ${this.entries.size} entries` +
-				(this.versioned.routeCount
-					? `, ${this.versioned.routeCount} versioned routes`
-					: '') +
-				(this.versioned.routerCount
-					? `, ${this.versioned.routerCount} versioned routers`
-					: ''),
-		);
-	}
-
-	/**
-	 * Boot the app. Optionally accepts a setup callback for infra init.
-	 * Transitions: idle -> booting -> ready.
-	 *
-	 * Boot sequence:
-	 *   1. Run user setup() callback (infra init: DB, Redis, etc.)
-	 *   2. Validate plugin dependency graph (topological sort, detect cycles)
-	 *   3. Run plugin init() callbacks in topological order (dependencies first)
-	 *   4. #commit() — sort, build versioned router, flush to Oak
-	 *
-	 * @example
-	 * await app.boot(async () => {
-	 *   await connectDatabase();
-	 *   await initializeStore();
-	 *   eventBus.bindCodexaHttpEvents();
-	 *   any async service registry
-	 * });
-	 */
-	async boot(setup?: () => Promise<void> | void): Promise<this> {
-		this.lifecycle.assertPhase('idle', 'boot()');
-		this.lifecycle.transition('booting');
-		log.info('Booting…');
-
-		// 1. Run root setup (DB connections, store init, etc.)
-		if (setup) await setup();
-
-		// 2. Plugin init sequence (topological order → dependencies first)
-		if (this.plugins.size > 0) {
-			const initOrder = this.plugins.topologicalSort();
-			log.info(
-				`Initializing ${initOrder.length} plugin(s) in order: [${
-					initOrder.join(' → ')
-				}]`,
-			);
-
-			for (const name of initOrder) {
-				const entry = this.plugins.get(name);
-				if (!entry || entry.status !== 'installed') continue;
-
-				pluginLog.debug(`Initializing plugin: "${name}"`);
-				await entry.scope._runInit();
-				entry.status = 'initialized';
-				pluginLog.info(`Plugin initialized: "${name}"`);
-			}
-		}
-
-		// 3. Commit pipeline
-		this.#commit();
-
-		this.lifecycle.transition('ready');
-		log.info('Boot complete - ready to listen.');
-		return this;
-	}
-
-	/**
-	 * Start listening. Transitions: ready -> listening.
-	 */
-	async listen(options?: ListenOptions): Promise<void> {
-		this.lifecycle.assertPhase('ready', 'listen()');
-
-		const port = options?.port ?? 8000;
-		const hostname = options?.host ?? '0.0.0.0';
-
-		const ac = this.lifecycle.createAbortController();
-		this.lifecycle.registerSignalHandlers(async () => {
-			log.info('Received shutdown signal.');
-			await this.shutdown();
-		});
-		this.lifecycle.transition('listening');
-		this.lifecycle.trackListenPromise();
-
-		log.info(`Listening on http://${hostname}:${port}`);
-
+		this.#installingPlugins.add(pluginName);
+		this.#exposedServices.set(pluginName, new Map<string, unknown>());
 		try {
-			await this.app.listen({
-				port,
-				hostname,
-				signal: options?.signal ?? ac.signal,
-			});
+			const pluginVersionHeader = normalizeVersionHeader(
+				plugin.versionHeader,
+			);
+			const scope = createPluginScope<Empty, Name, Deps>(
+				this.#pluginHost,
+				pluginName as Name,
+				dependsOn as readonly Deps[],
+				pluginVersionHeader,
+			);
+			const setupResult: unknown = plugin.setup(scope, config as Config);
+			if (setupResult instanceof Promise) {
+				frameworkMessage(
+					'error',
+					`Plugin "${pluginName}" setup returned a Promise. Install async plugins inside boot() or make setup synchronous for cold-start-safe registration.`,
+				);
+			}
+			this.#addPluginSnapshot(scope.pluginSnapshot());
+			this.#dirty = true;
+			this.#serviceViews.set(
+				pluginName,
+				this.#createServiceView(pluginName),
+			);
+			this.#pluginRecords.set(
+				pluginName,
+				Object.freeze({
+					name: pluginName,
+					metadata: normalizePluginMetadata(plugin.metadata),
+					dependsOn,
+				}),
+			);
+			this.#installedPlugins.add(pluginName);
+			return this as ICodexaHttp<InstalledPlugins | Name>;
+		} catch (error) {
+			this.#rollbackPluginInstall(pluginName);
+			this.#exposedServices.delete(pluginName);
+			this.#serviceViews.delete(pluginName);
+			this.#pluginShutdownHooks.delete(pluginName);
+			this.#pluginSuccessHooks.delete(pluginName);
+			this.#pluginErrorHooks.delete(pluginName);
+			throw error;
 		} finally {
-			this.lifecycle.resolveListenPromise();
+			this.#installingPlugins.delete(pluginName);
 		}
 	}
 
-	/**
-	 * Returns a Promise that resolves once listen() has fully settled.
-	 * Useful for programmatic shutdown to confirm the port is released.
-	 */
-	whenStopped(): Promise<void> {
-		return this.lifecycle.whenStopped();
+	public getService<
+		Name extends InstalledPlugins,
+		ServiceName extends keyof PluginServices<Name> & string,
+	>(
+		pluginName: Name,
+		serviceName: ServiceName,
+	): PluginServices<Name>[ServiceName] {
+		return this.#readService(pluginName, serviceName);
 	}
 
-	/**
-	 * Graceful shutdown.
-	 * - Plugin shutdown hooks run first (in reverse install order).
-	 * - Then root lifecycle hooks (reverse registration order / stack unwinding).
-	 */
-	async shutdown(): Promise<void> {
-		const phase = this.lifecycle.getPhase();
-		if (phase === 'shutting_down' || phase === 'stopped') return;
+	public getServices<Name extends InstalledPlugins>(
+		pluginName: Name,
+	): PluginServices<Name> {
+		return this.#readServices(pluginName);
+	}
 
-		this.lifecycle.transition('shutting_down');
-		log.info('Shutting down…');
+	public hasPlugin(name: string): boolean {
+		return this.#installedPlugins.has(name);
+	}
 
-		// Run plugin shutdown hooks in reverse install order.
-		const pluginNames = Array.from(this.plugins.entries()).map(
-			([name]) => name,
+	public hasService(pluginName: string, serviceName: string): boolean {
+		return this.#exposedServices.get(pluginName)?.has(
+			normalizeServiceName(serviceName),
+		) ?? false;
+	}
+
+	public installedPlugins(): readonly InstalledPluginInfo[] {
+		return Object.freeze(
+			[...this.#pluginRecords.values()].map((record) =>
+				Object.freeze({
+					name: record.name,
+					metadata: record.metadata,
+				})
+			),
 		);
-		for (let i = pluginNames.length - 1; i >= 0; i--) {
-			const entry = this.plugins.get(pluginNames[i]);
-			if (entry && entry.status === 'initialized') {
-				pluginLog.debug(
-					`Running shutdown hooks for plugin: "${pluginNames[i]}"`,
-				);
-				await entry.scope._runShutdownHooks();
-			}
+	}
+
+	public inspect(query?: InspectQuery): InspectResult {
+		if (this.#dirty) {
+			this.#commit();
 		}
-
-		// Run root lifecycle hooks.
-		await this.lifecycle.runHooks();
-
-		this.lifecycle.removeSignalHandlers();
-		this.lifecycle.abort();
-
-		this.lifecycle.transition('stopped');
-		log.info('Shutdown complete.');
+		return this.#inspect(query);
 	}
 
-	// ****************** Public API - Introspection ********************
-	/** Returns the full middleware pipeline metadata. Useful for debugging. */
-	inspect(): {
-		name: string;
-		priority: string;
-		order: number;
-		enabled: boolean;
-		tags: string[];
-	}[] {
-		return this.entries.inspectAll();
-	}
-
-	/** Returns all registered versioned routes. Useful for debugging. */
-	inspectVersioned(): {
-		version: string;
-		method: HttpMethod;
-		path: string;
-		name: string;
-		enabled: boolean;
-	}[] {
-		return this.versioned.inspectAll();
-	}
-
-	getPhase(): LifeCyclePhase {
-		return this.lifecycle.getPhase();
-	}
-
-	/** Escape hatch: the underlying Oak Application. */
-	getApp(): Application<OakAppState> {
-		return this.app;
-	}
-
-	get size(): number {
-		return this.entries.size;
-	}
-
-	// ****************** Public API - Plugin System ********************
-
-	/**
-	 * Install a plugin. Must be called before boot().
-	 *
-	 * - Validates that the plugin is not already installed.
-	 * - Validates all dependsOn plugins are already installed.
-	 * - Creates a sandboxed PluginInstallScope.
-	 * - Calls plugin.install(scope, context, config).
-	 * - Plugin registers routes, middleware, hooks, services via the scope.
-	 * - Plugin's init() (if any) runs later during boot() in dependency order.
-	 *
-	 * @example
-	 * await app.install(authPlugin, { db, redis }, { jwtSecret: '...' });
-	 * await app.install(billingPlugin, { db }, { stripe: '...' });
-	 * await app.boot();
-	 */
-	async install<C extends Record<string, unknown> = Record<string, unknown>>(
-		plugin: CodexaPlugin<C>,
-		context: CodexaPluginContext = {},
-		config?: C,
-	): Promise<this> {
-		this.assertNotCommitted('install()');
-
-		// Guard: duplicate install.
-		if (this.plugins.has(plugin.name)) {
-			throw new Error(
-				`CodexaHttp: Plugin "${plugin.name}" is already installed.`,
-			);
+	public enableByTags(...tags: string[]): this {
+		for (const tag of uniqueStrings(tags)) {
+			this.#disabledTags.delete(tag);
+			this.#dirty = true;
 		}
-
-		// Guard: dependency validation (O(d), d = dependsOn.length).
-		this.plugins.validateDependencies(
-			plugin as CodexaPlugin<Record<string, unknown>>,
-		);
-
-		// Create sandboxed scope — pass dependsOn so it can enforce getService discipline.
-		const scope = new PluginInstallScope(
-			plugin.name,
-			this,
-			this.plugins,
-			plugin.dependsOn ?? [],
-		);
-
-		// Let plugin register its routes, middleware, hooks, services.
-		await plugin.install(scope, context, config);
-
-		// Store in registry (erase generic C — runtime doesn't need it).
-		this.plugins.set(plugin.name, {
-			plugin: plugin as CodexaPlugin<Record<string, unknown>>,
-			scope,
-			status: 'installed',
-			installedAt: Date.now(),
-		});
-
-		pluginLog.info(
-			`Plugin installed: "${plugin.name}@${plugin.version}"`,
-		);
+		if (this.#committed) {
+			this.#commit();
+		}
 		return this;
 	}
 
-	/**
-	 * Uninstall a plugin by name.
-	 *
-	 * - Calls plugin.uninstall() if defined.
-	 * - Runs plugin's shutdown hooks in reverse order.
-	 * - Disables all middleware/routes tagged with the plugin's name.
-	 * - Removes plugin and its services from the registry.
-	 *
-	 * Works both before AND after boot():
-	 *   - Before commit: tags were set → disableAll() silences them.
-	 *   - After commit: Oak routes stay registered but sentinel.enabled = false.
-	 */
-	async uninstall(pluginName: string): Promise<this> {
-		const entry = this.plugins.get(pluginName);
-		if (!entry) {
-			throw new Error(
-				`CodexaHttp: Plugin "${pluginName}" is not installed.`,
+	public disableByTags(...tags: string[]): this {
+		for (const tag of uniqueStrings(tags)) {
+			this.#disabledTags.add(tag);
+			this.#dirty = true;
+		}
+		if (this.#committed) {
+			this.#commit();
+		}
+		return this;
+	}
+
+	public async boot(setup?: () => Promise<void> | void): Promise<this> {
+		if (this.#phase === 'ready' || this.#phase === 'listening') {
+			return this;
+		}
+		if (this.#phase === 'booting' && this.#bootPromise !== undefined) {
+			return await this.#bootPromise;
+		}
+		if (this.#phase !== 'idle') {
+			frameworkMessage(
+				'error',
+				`Cannot boot() while lifecycle phase is ${this.#phase}.`,
 			);
 		}
+		this.#bootPromise = this.#performBoot(setup);
+		return await this.#bootPromise;
+	}
 
-		// Guard: check no other installed plugin depends on this one.
-		for (const [name, { plugin: p }] of this.plugins.entries()) {
+	public async listen(options: AppListenOptions = {}): Promise<void> {
+		await this.boot();
+		if (this.#phase !== 'ready') {
+			frameworkMessage(
+				'error',
+				`Cannot listen() while lifecycle phase is ${this.#phase}.`,
+			);
+		}
+		const serveOptions = this.#createServeOptions(options);
+		this.#phase = setPhase(this.#phase, 'listening');
+		try {
+			const server = Deno.serve(
+				serveOptions,
+				(request: Request) => this.dispatch(request),
+			);
+			this.#server = server;
+			await this.#server.finished;
+		} catch (error) {
+			if (this.#phase !== 'shutting_down' && this.#phase !== 'stopped') {
+				await this.#handleServerFailure(error);
+			}
+			throw error;
+		} finally {
+			if (this.#phase !== 'stopped') {
+				await this.shutdown();
+			}
+		}
+	}
+
+	public async dispatch(request: Request): Promise<Response> {
+		if (!this.#committed) {
+			await this.boot();
+		}
+		if (this.#phase === 'shutting_down' || this.#phase === 'stopped') {
+			const response = new Response('Service Unavailable', {
+				status: 503,
+				headers: { 'content-type': 'text/plain; charset=utf-8' },
+			});
+			await this.#emitRequestHooksForRequest(request, response);
+			return response;
+		}
+
+		let built: BuiltContext<StateShape> | undefined;
+		let matchedRoute: RouteMeta | undefined;
+		try {
+			const url = new URL(request.url);
+			const method = tryNormalizeMethod(request.method);
+			if (method === undefined) {
+				const response = new Response('Method Not Implemented', {
+					status: 501,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				});
+				await this.#emitRequestHooksForRequest(request, response);
+				return response;
+			}
+			const matcher = this.#matcher;
+			if (matcher === undefined) {
+				frameworkMessage('error', 'Router matcher is not ready.');
+			}
+			const found = rou3Find(
+				matcher,
+				method,
+				normalizeRequestPath(url.pathname),
+				{
+					params: true,
+					normalize: false,
+				},
+			);
+			if (!isRou3MatchResult(found) || typeof found.data !== 'string') {
+				const response = await this.#notFoundHandler(request);
+				await this.#emitRequestHooksForRequest(request, response);
+				return response;
+			}
+			const route = this.#selectCommittedRoute(
+				found.data as RoutePathKey,
+				request,
+			);
+			if (route === undefined || !route.meta.enabled) {
+				const response = await this.#notFoundHandler(request);
+				await this.#emitRequestHooksForRequest(request, response);
+				return response;
+			}
+			matchedRoute = route.meta;
+			built = buildCtx<StateShape>(request, toParams(found.params));
+			const response = await this.#executeCommittedRoute(route, built);
+			await this.#emitRequestHooks(
+				built,
+				response,
+				undefined,
+				matchedRoute,
+			);
+			return response;
+		} catch (error) {
+			const response = await this.#handleRequestError(error, request);
+			if (built === undefined) {
+				await this.#emitRequestHooksForRequest(
+					request,
+					response,
+					error,
+					matchedRoute,
+				);
+			} else {
+				await this.#emitRequestHooks(
+					built,
+					response,
+					error,
+					matchedRoute,
+				);
+			}
+			return response;
+		}
+	}
+
+	public async shutdown(): Promise<void> {
+		if (this.#phase === 'stopped') {
+			return await this.#stoppedPromise;
+		}
+		if (this.#shutdownPromise !== undefined) {
+			return await this.#shutdownPromise;
+		}
+		this.#shutdownPromise = this.#performShutdown();
+		return await this.#shutdownPromise;
+	}
+
+	public whenStopped(): Promise<void> {
+		return this.#stoppedPromise;
+	}
+
+	public onShutdown(hook: Hook): this {
+		this.#assertNotCommitted('register shutdown hooks');
+		this.#shutdownHooks.push(hook);
+		return this;
+	}
+
+	public onSuccess(hook: RequestSuccessHook<StateShape>): this {
+		this.#assertNotCommitted('register success hooks');
+		this.#successHooks.push(hook);
+		return this;
+	}
+
+	public onError(hook: RequestErrorHook<StateShape>): this {
+		this.#assertNotCommitted('register error hooks');
+		this.#errorHooks.push(hook);
+		return this;
+	}
+
+	public onNotFound(
+		handler: (req: Request) => Response | Promise<Response>,
+	): this {
+		this.#assertNotCommitted('register not-found handler');
+		this.#notFoundHandler = handler;
+		return this;
+	}
+
+	public onException(
+		handler: (err: unknown, req: Request) => Response | Promise<Response>,
+	): this {
+		this.#assertNotCommitted('register exception handler');
+		this.#errorHandler = handler;
+		return this;
+	}
+
+	public hasRoute(method: HttpMethod, path: string): boolean {
+		return this.#routePathKeys.has(routePathKey(method, path));
+	}
+
+	public toRegExp(method: HttpMethod, path: string): RegExp | null {
+		if (!this.hasRoute(method, path)) {
+			return null;
+		}
+		return rou3ToRegExp(normalizePath(path));
+	}
+
+	public getPhase(): LifeCyclePhase {
+		return this.#phase;
+	}
+
+	public get size(): number {
+		return this.#committed
+			? this.#compiledRoutesMap.size
+			: this.#routesMap.size;
+	}
+
+	public getServer(): Deno.HttpServer | undefined {
+		return this.#server;
+	}
+
+	#exposeService<PluginName extends string>(
+		pluginName: PluginName,
+		serviceName: string,
+		service: unknown,
+	): void {
+		const normalizedServiceName = normalizeServiceName(serviceName);
+		const services = this.#exposedServices.get(pluginName);
+		if (
+			services === undefined || !this.#installingPlugins.has(pluginName)
+		) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" can expose services only during setup().`,
+			);
+		}
+		if (services.has(normalizedServiceName)) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" already exposes service "${normalizedServiceName}".`,
+			);
+		}
+		services.set(normalizedServiceName, service);
+	}
+
+	#addPluginShutdownHook(pluginName: string, hook: Hook): void {
+		this.#assertInstalling(pluginName, 'register shutdown hooks');
+		this.#pushPluginHook(this.#pluginShutdownHooks, pluginName, hook);
+	}
+
+	#addPluginSuccessHook<StateExt extends StateShape>(
+		pluginName: string,
+		hook: RequestSuccessHook<StateExt>,
+	): void {
+		this.#assertInstalling(pluginName, 'register success hooks');
+		this.#pushPluginHook(
+			this.#pluginSuccessHooks,
+			pluginName,
+			hook as RequestSuccessHook<StateShape>,
+		);
+	}
+
+	#addPluginErrorHook<StateExt extends StateShape>(
+		pluginName: string,
+		hook: RequestErrorHook<StateExt>,
+	): void {
+		this.#assertInstalling(pluginName, 'register error hooks');
+		this.#pushPluginHook(
+			this.#pluginErrorHooks,
+			pluginName,
+			hook as RequestErrorHook<StateShape>,
+		);
+	}
+
+	async #performBoot(setup?: () => Promise<void> | void): Promise<this> {
+		this.#phase = setPhase(this.#phase, 'booting');
+		try {
+			if (setup !== undefined) {
+				await setup();
+			}
+			if (this.#dirty) {
+				this.#commit();
+			}
+			this.#committed = true;
+			this.#phase = setPhase(this.#phase, 'ready');
+			return this;
+		} catch (error) {
+			this.#phase = setPhase(this.#phase, 'stopped');
+			this.#resolveStopped();
+			throw error;
+		}
+	}
+
+	#createServeOptions(
+		options: AppListenOptions,
+	): Deno.ServeTcpOptions | (Deno.ServeTcpOptions & Deno.TlsCertifiedKeyPem) {
+		if (options.secure === true) {
+			if (options.cert === undefined || options.cert.trim() === '') {
+				frameworkMessage(
+					'error',
+					'secure listen() requires a TLS cert.',
+				);
+			}
+			if (options.key === undefined || options.key.trim() === '') {
+				frameworkMessage(
+					'error',
+					'secure listen() requires a TLS key.',
+				);
+			}
+			return {
+				port: options.port ?? 8000,
+				hostname: options.hostname,
+				signal: options.signal,
+				onListen: options.onListen,
+				cert: options.cert,
+				key: options.key,
+			};
+		}
+		return {
+			port: options.port ?? 8000,
+			hostname: options.hostname,
+			signal: options.signal,
+			onListen: options.onListen,
+		};
+	}
+
+	async #handleServerFailure(error: unknown): Promise<void> {
+		frameworkMessage('error', 'Server failed.', error, false);
+		await this.shutdown();
+	}
+
+	#resolveStopped(): void {
+		this.#stoppedResolve?.();
+		this.#stoppedResolve = undefined;
+	}
+
+	async #performShutdown(): Promise<void> {
+		if (this.#phase === 'idle') {
+			this.#phase = setPhase(this.#phase, 'stopped');
+		} else if (this.#phase === 'ready' || this.#phase === 'listening') {
+			this.#phase = setPhase(this.#phase, 'shutting_down');
+		}
+		try {
+			const server = this.#server;
+			if (server !== undefined) {
+				this.#server = undefined;
+				try {
+					await server.shutdown();
+				} catch (error) {
+					frameworkMessage(
+						'error',
+						'Server shutdown failed.',
+						error,
+						false,
+					);
+				}
+			}
+			await executeHooksSafe(this.#shutdownHooks, 'shutdown');
+			for (const hooks of this.#pluginShutdownHooks.values()) {
+				await executeHooksSafe(hooks, 'shutdown');
+			}
+		} finally {
+			if (this.#phase !== 'stopped') {
+				this.#phase = setPhase(this.#phase, 'stopped');
+			}
+			this.#resolveStopped();
+		}
+	}
+
+	async #executeCommittedRoute(
+		route: CommittedRoute<StateShape>,
+		built: BuiltContext<StateShape>,
+	): Promise<Response> {
+		for (const entry of route.middleware) {
+			const runCtx = entry.kind === 'inline'
+				? built.withLocalProvide(entry.expose)
+				: built.withStateProvide(entry.expose);
+			const output = await entry.fn(runCtx);
+			if (output instanceof Response) {
+				return output;
+			}
+		}
+		return await route.handler(built.ctx);
+	}
+
+	#selectCommittedRoute(
+		matchKey: RoutePathKey,
+		request: Request,
+	): CommittedRoute<StateShape> | undefined {
+		const bucket = this.#compiledRouteBuckets.get(matchKey);
+		if (bucket === undefined) {
+			return undefined;
+		}
+		const requestedVersion = bucket.versionHeader === undefined
+			? null
+			: request.headers.get(bucket.versionHeader);
+		if (requestedVersion !== null) {
+			const versionedRoute = bucket.versions.get(requestedVersion);
+			if (versionedRoute !== undefined) {
+				return versionedRoute;
+			}
+			if (bucket.versions.size > 0) {
+				return undefined;
+			}
+		}
+		return bucket.unversioned;
+	}
+
+	async #emitRequestHooksForRequest(
+		request: Request,
+		response: Response,
+		error?: unknown,
+		route?: RouteMeta,
+	): Promise<Response> {
+		const shouldRunErrorHooks = error !== undefined ||
+			response.status >= 400;
+		if (!this.#hasRequestHooks(shouldRunErrorHooks, route?.pluginName)) {
+			return response;
+		}
+		const built = buildCtx<StateShape>(request, Object.freeze({}));
+		return await this.#emitRequestHooks(built, response, error, route);
+	}
+
+	async #emitRequestHooks(
+		built: BuiltContext<StateShape>,
+		response: Response,
+		error?: unknown,
+		route?: RouteMeta,
+	): Promise<Response> {
+		const pluginName = route?.pluginName;
+		const shouldRunErrorHooks = error !== undefined ||
+			response.status >= 400;
+		if (!this.#hasRequestHooks(shouldRunErrorHooks, pluginName)) {
+			return response;
+		}
+		const responseSnapshot = responseToSnapshot(response);
+		const base = built.hookEvent(route);
+		if (!shouldRunErrorHooks) {
+			const event = Object.freeze({
+				...base,
+				response: responseSnapshot,
+			}) as RequestHookEvent<StateShape>;
+			await this.#runSuccessHooks(event, pluginName);
+			return response;
+		}
+
+		const event = Object.freeze({
+			...base,
+			response: responseSnapshot,
+			...(error === undefined ? {} : { error: errorToSnapshot(error) }),
+		}) as RequestHookEvent<StateShape> & {
+			readonly error?: HookErrorSnapshot;
+		};
+		await this.#runErrorHooks(event, pluginName);
+		return response;
+	}
+
+	#hasRequestHooks(runErrorHooks: boolean, pluginName?: string): boolean {
+		if (runErrorHooks) {
+			return this.#errorHooks.length > 0 ||
+				(pluginName !== undefined &&
+					(this.#pluginErrorHooks.get(pluginName)?.length ?? 0) > 0);
+		}
+		return this.#successHooks.length > 0 ||
+			(pluginName !== undefined &&
+				(this.#pluginSuccessHooks.get(pluginName)?.length ?? 0) > 0);
+	}
+
+	async #runSuccessHooks(
+		event: RequestHookEvent<StateShape>,
+		pluginName?: string,
+	): Promise<void> {
+		await this.#runHookList(this.#successHooks, event, 'onSuccess');
+		const hooks = pluginName === undefined
+			? undefined
+			: this.#pluginSuccessHooks.get(pluginName);
+		if (hooks !== undefined) {
+			await this.#runHookList(hooks, event, 'onSuccess');
+		}
+	}
+
+	async #runErrorHooks(
+		event: RequestHookEvent<StateShape> & {
+			readonly error?: HookErrorSnapshot;
+		},
+		pluginName?: string,
+	): Promise<void> {
+		await this.#runHookList(this.#errorHooks, event, 'onError');
+		const hooks = pluginName === undefined
+			? undefined
+			: this.#pluginErrorHooks.get(pluginName);
+		if (hooks !== undefined) {
+			await this.#runHookList(hooks, event, 'onError');
+		}
+	}
+
+	async #runHookList<TEvent>(
+		hooks: readonly ((event: TEvent) => void | Promise<void>)[],
+		event: TEvent,
+		label: string,
+	): Promise<void> {
+		for (const hook of hooks) {
+			try {
+				await hook(event);
+			} catch (hookError) {
+				frameworkMessage(
+					'error',
+					`${label} hook failed.`,
+					hookError,
+					false,
+				);
+			}
+		}
+	}
+
+	async #handleRequestError(
+		error: unknown,
+		request: Request,
+	): Promise<Response> {
+		try {
+			return await this.#errorHandler(error, request);
+		} catch (handlerError) {
+			frameworkMessage(
+				'error',
+				'Custom onException handler failed.',
+				handlerError,
+				false,
+			);
+			return new Response('Internal Server Error', {
+				status: 500,
+				headers: { 'content-type': 'text/plain; charset=utf-8' },
+			});
+		}
+	}
+
+	#addPluginSnapshot(snapshot: PluginScopeSnapshot<StateShape>): void {
+		for (const route of snapshot.routes) {
+			if (this.#routesMap.has(route.key)) {
+				frameworkMessage(
+					'error',
+					`Duplicate route across plugins: ${
+						formatRouteIdentity(
+							route.method,
+							route.path,
+							route.meta.version,
+						)
+					}`,
+				);
+			}
+		}
+		for (const route of snapshot.routes) {
+			this.#routesMap.set(route.key, route);
+			this.#routePathKeys.add(route.matchKey);
+		}
+		for (const middleware of snapshot.middleware) {
+			const id = ++this.#middlewareOrder;
+			this.#middlewaresMap.set(
+				id,
+				Object.freeze({
+					...middleware,
+					id,
+					order: id,
+				}),
+			);
+		}
+	}
+
+	#rollbackPluginInstall(pluginName: string): void {
+		let routesChanged = false;
+		for (const [key, route] of this.#routesMap) {
+			if (route.meta.pluginName === pluginName) {
+				this.#routesMap.delete(key);
+				routesChanged = true;
+			}
+		}
+		for (const [id, middleware] of this.#middlewaresMap) {
+			if (middleware.pluginName === pluginName) {
+				this.#middlewaresMap.delete(id);
+			}
+		}
+		if (routesChanged) {
+			this.#rebuildRoutePathKeys();
+			this.#dirty = true;
+		}
+	}
+
+	#rebuildRoutePathKeys(): void {
+		this.#routePathKeys = new Set(
+			[...this.#routesMap.values()].map((route) => route.matchKey),
+		);
+	}
+
+	#commit(): void {
+		const routes = [...this.#routesMap.values()];
+		const nextMatcher = rou3Create();
+		const nextCompiled = new Map<RouteKey, CommittedRoute<StateShape>>();
+		const addedMatcherKeys = new Set<RoutePathKey>();
+		const mutableBuckets = new Map<
+			RoutePathKey,
+			{
+				unversioned?: CommittedRoute<StateShape>;
+				versionHeader?: string;
+				versions: Map<string, CommittedRoute<StateShape>>;
+			}
+		>();
+		const middlewareByRoute = new Map<
+			RouteKey,
+			MiddlewareRegistration<StateShape>[]
+		>();
+
+		const enabledRoutes: RouteRegistration<StateShape>[] = [];
+		const enabledRouteKeys = new Set<RouteKey>();
+		for (const route of routes) {
 			if (
-				name !== pluginName &&
-				(p.dependsOn ?? []).includes(pluginName)
+				route.enabled && !hasAnyTag(route.meta.tags, this.#disabledTags)
 			) {
-				throw new Error(
-					`CodexaHttp: Cannot uninstall "${pluginName}" — ` +
-						`plugin "${name}" depends on it. Uninstall "${name}" first.`,
-				);
+				enabledRoutes.push(route);
+				enabledRouteKeys.add(route.key);
+				middlewareByRoute.set(route.key, []);
 			}
 		}
 
-		// Call plugin's own cleanup.
-		if (entry.plugin.uninstall) {
-			await entry.plugin.uninstall(entry.scope);
+		const pluginMiddleware = sortByPriorityAndOrder(
+			[...this.#middlewaresMap.values()].filter((middleware) =>
+				middleware.enabled &&
+				middleware.matchers.length > 0 &&
+				!hasAnyTag(middleware.tags, this.#disabledTags)
+			),
+		);
+
+		if (pluginMiddleware.length > 0 && enabledRoutes.length > 0) {
+			const routeIndex = buildCommitRouteIndex(enabledRoutes);
+			for (const middleware of pluginMiddleware) {
+				const matchedRoutes = routesForMiddleware(
+					middleware,
+					routeIndex,
+				);
+				for (const route of matchedRoutes) {
+					middlewareByRoute.get(route.key)?.push(middleware);
+				}
+			}
 		}
 
-		// Run plugin shutdown hooks.
-		await entry.scope._runShutdownHooks();
+		for (const route of routes) {
+			const effectiveEnabled = enabledRouteKeys.has(route.key);
+			const globals = effectiveEnabled
+				? sortByPriorityAndOrder(middlewareByRoute.get(route.key) ?? [])
+				: [];
+			const inline = effectiveEnabled
+				? sortByPriorityAndOrder(
+					route.middleware.filter((middleware) =>
+						middleware.enabled &&
+						!hasAnyTag(middleware.tags, this.#disabledTags)
+					),
+				)
+				: [];
+			const meta: RouteMeta = Object.freeze({
+				...route.meta,
+				enabled: effectiveEnabled,
+			});
+			const committed = Object.freeze({
+				middleware: Object.freeze([...globals, ...inline]),
+				handler: route.handler,
+				meta,
+			});
+			nextCompiled.set(route.key, committed);
+			if (effectiveEnabled) {
+				let bucket = mutableBuckets.get(route.matchKey);
+				if (bucket === undefined) {
+					bucket = {
+						versions: new Map<string, CommittedRoute<StateShape>>(),
+					};
+					mutableBuckets.set(route.matchKey, bucket);
+				}
+				if (route.meta.version === undefined) {
+					bucket.unversioned = committed;
+				} else {
+					const routeVersionHeader = route.meta.versionHeader ??
+						DEFAULT_VERSION_HEADER;
+					if (
+						bucket.versionHeader !== undefined &&
+						bucket.versionHeader !== routeVersionHeader
+					) {
+						frameworkMessage(
+							'error',
+							`Version header conflict for ${
+								formatRouteIdentity(route.method, route.path)
+							}. Use one version header per method/path bucket.`,
+						);
+					}
+					bucket.versionHeader = routeVersionHeader;
+					bucket.versions.set(route.meta.version, committed);
+				}
+				if (!addedMatcherKeys.has(route.matchKey)) {
+					rou3Add(
+						nextMatcher,
+						route.method,
+						route.path,
+						route.matchKey,
+					);
+					addedMatcherKeys.add(route.matchKey);
+				}
+			}
+		}
 
-		// Disable all middleware tagged with this plugin's name.
-		entry.scope._disableAll();
-
-		// Remove from registry.
-		entry.status = 'uninstalled';
-		this.plugins.delete(pluginName);
-
-		pluginLog.info(`Plugin uninstalled: "${pluginName}"`);
-		return this;
+		this.#matcher = nextMatcher;
+		this.#compiledRoutesMap = nextCompiled;
+		this.#compiledRouteBuckets = new Map(
+			[...mutableBuckets].map(([key, bucket]) => [
+				key,
+				Object.freeze({
+					unversioned: bucket.unversioned,
+					versionHeader: bucket.versionHeader,
+					versions: bucket.versions,
+				}),
+			]),
+		);
+		this.#dirty = false;
 	}
 
-	/** O(1) check if a plugin is installed. */
-	hasPlugin(pluginName: string): boolean {
-		return this.plugins.has(pluginName);
+	#inspect(query?: InspectQuery): InspectResult {
+		const includeDisabled = query?.includeDisabled !== false;
+		const hasQuery = query !== undefined &&
+			((query.tags?.length ?? 0) > 0 ||
+				(query.plugins?.length ?? 0) > 0 ||
+				(query.routes?.length ?? 0) > 0 ||
+				(query.services?.length ?? 0) > 0 ||
+				(query.methods?.length ?? 0) > 0 ||
+				(query.versions?.length ?? 0) > 0);
+		const wantsRoutes = !hasQuery ||
+			(query?.tags?.length ?? 0) > 0 ||
+			(query?.plugins?.length ?? 0) > 0 ||
+			(query?.routes?.length ?? 0) > 0 ||
+			(query?.methods?.length ?? 0) > 0 ||
+			(query?.versions?.length ?? 0) > 0;
+		const wantsMiddlewares = hasQuery &&
+			((query?.tags?.length ?? 0) > 0 ||
+				(query?.plugins?.length ?? 0) > 0);
+		const wantsPlugins = hasQuery &&
+			((query?.tags?.length ?? 0) > 0 ||
+				(query?.plugins?.length ?? 0) > 0);
+		const wantsServices = hasQuery && (query?.services?.length ?? 0) > 0;
+
+		const routeList = [...this.#routesMap.values()].sort((a, b) =>
+			a.order - b.order
+		);
+		const allRoutes = routeList.map((route) => this.#toInspectRoute(route));
+		const allMiddlewares = wantsMiddlewares
+			? [...this.#middlewaresMap.values()].map((middleware) =>
+				this.#toInspectMiddleware(middleware)
+			)
+			: [];
+		const routesByPlugin = wantsPlugins
+			? this.#groupInspectRoutesByPlugin(allRoutes)
+			: new Map<string, readonly InspectRoute[]>();
+		const middlewareCountByPlugin = wantsPlugins
+			? this.#countMiddlewaresByPlugin()
+			: new Map<string, number>();
+		const allPlugins = wantsPlugins
+			? [...this.#pluginRecords.values()].map((plugin) =>
+				this.#toInspectPlugin(
+					plugin,
+					routesByPlugin.get(plugin.name) ?? [],
+					middlewareCountByPlugin.get(plugin.name) ?? 0,
+				)
+			)
+			: [];
+
+		const filteredRoutes = wantsRoutes
+			? allRoutes.filter((route) =>
+				(includeDisabled || route.enabled) &&
+				this.#matchesRouteQuery(route, query)
+			)
+			: [];
+		const filteredMiddlewares = wantsMiddlewares
+			? allMiddlewares.filter((middleware) =>
+				this.#matchesMiddlewareQuery(middleware, query)
+			)
+			: [];
+		const filteredPlugins = wantsPlugins
+			? allPlugins.filter((plugin) =>
+				this.#matchesPluginQuery(plugin, query)
+			)
+			: [];
+		const filteredServices = wantsServices
+			? this.#inspectServicesForQuery(query)
+			: [];
+
+		const enabledRouteCount =
+			allRoutes.filter((route) => route.enabled).length;
+		return Object.freeze({
+			query,
+			summary: Object.freeze({
+				routeCount: allRoutes.length,
+				enabledRouteCount,
+				disabledRouteCount: allRoutes.length - enabledRouteCount,
+				pluginCount: this.#pluginRecords.size,
+				serviceCount: this.#countExposedServices(),
+				middlewareCount: this.#middlewaresMap.size,
+			}),
+			routes: Object.freeze(filteredRoutes),
+			middlewares: Object.freeze(filteredMiddlewares),
+			plugins: Object.freeze(filteredPlugins),
+			services: Object.freeze(filteredServices),
+		});
 	}
 
-	/**
-	 * Access a service exposed by a plugin.
-	 * Root-level alternative to scope.getService().
-	 *
-	 * @example
-	 * const checker = app.getPluginService<PolicyChecker>('Codexa-auth', 'policyChecker');
-	 */
-	getPluginService<T>(pluginName: string, serviceName: string): T {
-		return this.plugins.getService<T>(pluginName, serviceName);
+	#toInspectRoute(route: RouteRegistration<StateShape>): InspectRoute {
+		const compiled = this.#compiledRoutesMap.get(route.key);
+		const meta = compiled?.meta ?? route.meta;
+		const middlewares = compiled?.middleware ?? route.middleware;
+		return Object.freeze({
+			name: meta.name,
+			method: meta.method,
+			path: meta.path,
+			enabled: meta.enabled,
+			configuredEnabled: route.enabled,
+			tags: meta.tags,
+			pluginName: meta.pluginName,
+			version: meta.version,
+			versionHeader: meta.versionHeader,
+			openapi: meta.openapi,
+			middlewares: Object.freeze(
+				middlewares.map((middleware) =>
+					Object.freeze({
+						name: middleware.name,
+						kind: middleware.kind,
+						priority: middleware.priority,
+						pluginName: middleware.pluginName,
+					})
+				),
+			),
+		});
 	}
 
-	/**
-	 * Introspect all installed plugins.
-	 * Useful for admin dashboards, health checks, debugging.
-	 */
-	inspectPlugins(): {
-		name: string;
-		version: string;
-		status: string;
-		installedAt: number;
-		services: string[];
-		dependsOn: string[];
-	}[] {
-		return this.plugins.inspectAll();
+	#toInspectMiddleware(
+		middleware: MiddlewareRegistration<StateShape>,
+	): InspectMiddleware {
+		return Object.freeze({
+			name: middleware.name,
+			kind: middleware.kind,
+			enabled: middleware.enabled &&
+				!hasAnyTag(middleware.tags, this.#disabledTags),
+			tags: middleware.tags,
+			appliedOn: middleware.appliedOn,
+			priority: middleware.priority,
+			pluginName: middleware.pluginName,
+		});
 	}
+
+	#toInspectPlugin(
+		plugin: PluginRecord,
+		routes: readonly InspectRoute[],
+		middlewareCount: number,
+	): InspectPlugin {
+		const services = [
+			...(this.#exposedServices.get(plugin.name)?.keys() ?? []),
+		];
+		return Object.freeze({
+			name: plugin.name,
+			metadata: plugin.metadata,
+			dependsOn: plugin.dependsOn,
+			services: Object.freeze(services),
+			routeCount: routes.length,
+			unversionedRouteCount: routes.filter((route) =>
+				route.version === undefined
+			).length,
+			versionedRouteCount:
+				routes.filter((route) => route.version !== undefined).length,
+			middlewareCount,
+			routes: Object.freeze(routes),
+		});
+	}
+
+	#groupInspectRoutesByPlugin(
+		routes: readonly InspectRoute[],
+	): Map<string, readonly InspectRoute[]> {
+		const mutable = new Map<string, InspectRoute[]>();
+		for (const route of routes) {
+			if (route.pluginName === undefined) {
+				continue;
+			}
+			let pluginRoutes = mutable.get(route.pluginName);
+			if (pluginRoutes === undefined) {
+				pluginRoutes = [];
+				mutable.set(route.pluginName, pluginRoutes);
+			}
+			pluginRoutes.push(route);
+		}
+		const grouped = new Map<string, readonly InspectRoute[]>();
+		for (const [pluginName, pluginRoutes] of mutable) {
+			grouped.set(pluginName, Object.freeze(pluginRoutes));
+		}
+		return grouped;
+	}
+
+	#countMiddlewaresByPlugin(): Map<string, number> {
+		const counts = new Map<string, number>();
+		for (const middleware of this.#middlewaresMap.values()) {
+			if (middleware.pluginName === undefined) {
+				continue;
+			}
+			counts.set(
+				middleware.pluginName,
+				(counts.get(middleware.pluginName) ?? 0) + 1,
+			);
+		}
+		return counts;
+	}
+
+	#countExposedServices(): number {
+		let count = 0;
+		for (const services of this.#exposedServices.values()) {
+			count += services.size;
+		}
+		return count;
+	}
+
+	#inspectAllServices(): readonly InspectService[] {
+		const services: InspectService[] = [];
+		this.#forEachExposedService((pluginName, serviceName) => {
+			services.push(this.#toInspectService(pluginName, serviceName));
+		});
+		return Object.freeze(services);
+	}
+
+	#inspectServicesForQuery(query?: InspectQuery): readonly InspectService[] {
+		const requested = uniqueStrings(query?.services);
+		if (requested.length === 0) {
+			return this.#inspectAllServices();
+		}
+		const services: InspectService[] = [];
+		for (const serviceName of requested) {
+			let found = false;
+			this.#forEachExposedService((pluginName, exposedServiceName) => {
+				if (exposedServiceName === serviceName) {
+					found = true;
+					services.push(
+						this.#toInspectService(pluginName, exposedServiceName),
+					);
+				}
+			});
+			if (!found) {
+				services.push(Object.freeze({
+					name: serviceName,
+					exists: false,
+				}));
+			}
+		}
+		return Object.freeze(services);
+	}
+
+	#forEachExposedService(
+		visit: (pluginName: string, serviceName: string) => void,
+	): void {
+		for (const [pluginName, pluginServices] of this.#exposedServices) {
+			for (const serviceName of pluginServices.keys()) {
+				visit(pluginName, serviceName);
+			}
+		}
+	}
+
+	#toInspectService(
+		pluginName: string,
+		serviceName: string,
+	): InspectService {
+		return Object.freeze({
+			name: serviceName,
+			pluginName,
+			exists: true,
+		});
+	}
+
+	#matchesRouteQuery(route: InspectRoute, query?: InspectQuery): boolean {
+		if (query === undefined) {
+			return true;
+		}
+		const tags = uniqueStrings(query.tags);
+		if (tags.length > 0 && !hasAnyTag(route.tags, new Set(tags))) {
+			return false;
+		}
+		const plugins = uniqueStrings(query.plugins);
+		if (
+			plugins.length > 0 &&
+			(route.pluginName === undefined ||
+				!plugins.includes(route.pluginName))
+		) {
+			return false;
+		}
+		const routes = uniqueStrings(query.routes);
+		if (routes.length > 0 && !routes.includes(route.name)) {
+			return false;
+		}
+		const methods = query.methods ?? [];
+		if (methods.length > 0 && !methods.includes(route.method)) {
+			return false;
+		}
+		const versions = uniqueStrings(query.versions);
+		if (
+			versions.length > 0 &&
+			(route.version === undefined || !versions.includes(route.version))
+		) {
+			return false;
+		}
+		return true;
+	}
+
+	#matchesMiddlewareQuery(
+		middleware: InspectMiddleware,
+		query?: InspectQuery,
+	): boolean {
+		if (query === undefined) {
+			return true;
+		}
+		const tags = uniqueStrings(query.tags);
+		const plugins = uniqueStrings(query.plugins);
+		return (tags.length === 0 ||
+			hasAnyTag(middleware.tags, new Set(tags))) &&
+			(plugins.length === 0 ||
+				(middleware.pluginName !== undefined &&
+					plugins.includes(middleware.pluginName)));
+	}
+
+	#matchesPluginQuery(plugin: InspectPlugin, query?: InspectQuery): boolean {
+		if (query === undefined) {
+			return true;
+		}
+		const plugins = uniqueStrings(query.plugins);
+		if (plugins.length > 0 && !plugins.includes(plugin.name)) {
+			return false;
+		}
+		const tags = uniqueStrings(query.tags);
+		if (
+			tags.length > 0 &&
+			!hasAnyTag(plugin.metadata?.tags ?? [], new Set(tags)) &&
+			!plugin.routes.some((route) => hasAnyTag(route.tags, new Set(tags)))
+		) {
+			return false;
+		}
+		return true;
+	}
+
+	#readService<
+		Name extends string,
+		ServiceName extends keyof PluginServices<Name> & string,
+	>(
+		pluginName: Name,
+		serviceName: ServiceName,
+	): PluginServices<Name>[ServiceName] {
+		const service = this.#getRawService(pluginName, serviceName);
+		return service as PluginServices<Name>[ServiceName];
+	}
+
+	#readServices<Name extends string>(pluginName: Name): PluginServices<Name> {
+		const view = this.#serviceViews.get(pluginName);
+		if (view === undefined || !this.#installedPlugins.has(pluginName)) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" is not installed.`,
+			);
+		}
+		return view as PluginServices<Name>;
+	}
+
+	#createServiceView(pluginName: string): Readonly<Record<string, unknown>> {
+		const services = this.#exposedServices.get(pluginName);
+		if (services === undefined) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" has no exposed service registry.`,
+			);
+		}
+		return Object.freeze(Object.fromEntries(services));
+	}
+
+	#getRawService(pluginName: string, serviceName: string): unknown {
+		const normalizedServiceName = normalizeServiceName(serviceName);
+		const services = this.#exposedServices.get(pluginName);
+		if (services === undefined || !this.#installedPlugins.has(pluginName)) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" is not installed.`,
+			);
+		}
+		if (!services.has(normalizedServiceName)) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" does not expose service "${normalizedServiceName}".`,
+			);
+		}
+		return services.get(normalizedServiceName);
+	}
+
+	#assertNotCommitted(action: string): void {
+		if (this.#committed) {
+			frameworkMessage(
+				'error',
+				`Cannot ${action} after boot(). All registrations must happen before boot().`,
+			);
+		}
+	}
+
+	#assertInstalling(pluginName: string, action: string): void {
+		if (!this.#installingPlugins.has(pluginName)) {
+			frameworkMessage(
+				'error',
+				`Plugin "${pluginName}" can ${action} only during setup().`,
+			);
+		}
+	}
+
+	#pushPluginHook<T>(
+		map: Map<string, T[]>,
+		pluginName: string,
+		hook: T,
+	): void {
+		let hooks = map.get(pluginName);
+		if (hooks === undefined) {
+			hooks = [];
+			map.set(pluginName, hooks);
+		}
+		hooks.push(hook);
+	}
+}
+
+export function createApp<InstalledPlugins extends string = never>(
+	name?: string,
+): ICodexaHttp<InstalledPlugins> {
+	return new CodexaHttpApp<InstalledPlugins>(name);
+}
+
+export function http<InstalledPlugins extends string = never>(
+	name?: string,
+): ICodexaHttp<InstalledPlugins> {
+	return createApp<InstalledPlugins>(name);
 }

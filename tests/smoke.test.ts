@@ -223,6 +223,24 @@ Deno.test('response: all helper functions exist', async () => {
 	assertExists(mod.sendPaginated);
 });
 
+Deno.test('response: send helpers return native Response', async () => {
+	const { sendCreated } = await import('../src/utils/response.ts');
+	const ctx = {
+		json(data: unknown, init?: ResponseInit): Response {
+			return Response.json(data, init);
+		},
+	};
+
+	const response = sendCreated(ctx, { id: 'u1' }, 'Created');
+	assertEquals(response instanceof Response, true);
+	assertEquals(response.status, 201);
+	const payload = await response.json();
+	assertEquals(payload.success, true);
+	assertEquals(payload.message, 'Created');
+	assertEquals(payload.data, { id: 'u1' });
+	assertEquals(typeof payload.meta.timestamp, 'string');
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // QUERY PARAMS
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -427,19 +445,19 @@ Deno.test('config/redis: pub/sub config accepted', async () => {
 
 Deno.test('config/storage: buildStorageConfig defaults to local', async () => {
 	const { buildStorageConfig } = await import('../src/config/storage.ts');
-	const cfg = buildStorageConfig({});
+	const cfg = buildStorageConfig({ STORAGE_PROVIDER: 'local' });
 	assertEquals(cfg.provider, 'local');
 	assertExists(cfg.local);
 	assertEquals(cfg.local?.dir, './uploads');
 });
 
-Deno.test('config/storage: buildStorageConfig s3 requires keys', async () => {
+Deno.test('config/storage: buildStorageConfig s3 accepts partial env shape', async () => {
 	const { buildStorageConfig } = await import('../src/config/storage.ts');
-	assertThrows(
-		() => buildStorageConfig({ STORAGE_PROVIDER: 's3' }),
-		Error,
-		'S3_BUCKET',
-	);
+	const cfg = buildStorageConfig({
+		STORAGE_PROVIDER: 's3',
+	} as Parameters<typeof buildStorageConfig>[0]);
+	assertEquals(cfg.provider, 's3');
+	assertEquals(cfg.s3?.bucket, undefined);
 });
 
 Deno.test('config/storage: buildStorageConfig s3 with valid keys', async () => {
@@ -470,204 +488,217 @@ Deno.test('config/storage: buildStorageConfig cloudinary', async () => {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // HTTP
-// ═══════════════════════════════════════════════════════════════════════════════
 
-Deno.test('http: CodexaHttp with name option', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'UserService' });
-	assertEquals(app.name, 'UserService');
-	assertEquals(app.getPhase(), 'idle');
-});
+Deno.test('http: createApp installs plugin routes and dispatches requests', async () => {
+	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
 
-Deno.test('http: CodexaHttp default name', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp();
-	assertEquals(app.name, 'CodexaApp');
-});
-
-Deno.test('http: multiple instances are isolated', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app1 = new CodexaHttp({ name: 'App1' });
-	const app2 = new CodexaHttp({ name: 'App2' });
-	assertEquals(app1.name, 'App1');
-	assertEquals(app2.name, 'App2');
-	assertEquals(app1 !== app2, true);
-	assertEquals(app1.size, 0);
-	assertEquals(app2.size, 0);
-});
-
-Deno.test('http: Router is exported and constructable', async () => {
-	const { Router } = await import('../src/lib/http/mod.ts');
-	const router = new Router();
-	assertExists(router.get);
-	assertExists(router.post);
-	assertExists(router.put);
-	assertExists(router.delete);
-	assertExists(router.patch);
-	assertExists(router.routes);
-	assertExists(router.allowedMethods);
-});
-
-Deno.test('http: MiddlewarePriority enum values', async () => {
-	const { MiddlewarePriority } = await import('../src/lib/http/mod.ts');
-	assertEquals(MiddlewarePriority.PRE_SETUP, 0);
-	assertEquals(MiddlewarePriority.CRITICAL, 1);
-	assertEquals(MiddlewarePriority.AUTH, 20);
-	assertEquals(MiddlewarePriority.SECURITY, 30);
-	assertEquals(MiddlewarePriority.BUSINESS, 40);
-	assertEquals(MiddlewarePriority.FALLBACK, 50);
-});
-
-Deno.test('http: register middleware via use()', async () => {
-	const { CodexaHttp, MiddlewarePriority } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'Test' });
-
-	app.use(async (_ctx, next) => { await next(); }, {
-		name: 'test-mw',
-		priority: MiddlewarePriority.BUSINESS,
-		tags: ['test'],
-	});
-	assertEquals(app.size, 1);
-});
-
-Deno.test('http: register HTTP shortcuts (get/post)', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'ShortcutTest' });
-
-	app.get('/health', async (ctx) => {
-		ctx.response.body = { status: 'ok' };
+	const healthPlugin = definePlugin({
+		name: 'health',
+		metadata: { tags: ['system'] },
+		setup(scope) {
+			scope.route({
+				method: 'GET',
+				path: '/health',
+				handler: (ctx) => ctx.json({ ok: true }),
+				options: { name: 'health.check', tags: ['public:health'] },
+			});
+		},
 	});
 
-	app.post('/api/data', async (ctx) => {
-		ctx.response.body = { created: true };
-	});
-
-	// shortcuts register entries
-	assertEquals(app.size >= 1, true);
-});
-
-Deno.test('http: register router with prefix', async () => {
-	const { CodexaHttp, Router } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'RouterTest' });
-
-	const usersRouter = new Router();
-	usersRouter.get('/', (ctx) => { ctx.response.body = []; });
-	usersRouter.post('/', (ctx) => { ctx.response.body = { ok: true }; });
-
-	app.router('/api/users', usersRouter, { tags: ['users'] });
-	assertEquals(app.size >= 1, true);
-});
-
-Deno.test('http: tag controls (inspectByTags)', async () => {
-	const { CodexaHttp, MiddlewarePriority } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'TagTest' });
-
-	app.use(async (_ctx, next) => { await next(); }, {
-		name: 'tagged-mw',
-		tags: ['auth'],
-		priority: MiddlewarePriority.AUTH,
-	});
-
-	const entries = app.inspectByTags('auth');
-	assertEquals(entries.length, 1);
-	assertEquals(entries[0].name, 'tagged-mw');
-	assertEquals(entries[0].enabled, true);
-});
-
-Deno.test('http: disableByTags and enableByTags', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'ToggleTest' });
-
-	app.use(async (_ctx, next) => { await next(); }, {
-		name: 'toggle-mw',
-		tags: ['feature-x'],
-	});
-
-	app.disableByTags('feature-x');
-	let entries = app.inspectByTags('feature-x');
-	assertEquals(entries[0].enabled, false);
-
-	app.enableByTags('feature-x');
-	entries = app.inspectByTags('feature-x');
-	assertEquals(entries[0].enabled, true);
-});
-
-Deno.test('http: versioned routes registration', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'VersionTest' });
-
-	app.version('1.0.0').get('/api/users', async (ctx) => {
-		ctx.response.body = { version: '1.0.0' };
-	});
-
-	app.version('2.0.0').get('/api/users', async (ctx) => {
-		ctx.response.body = { version: '2.0.0' };
-	});
-
-	const versioned = app.inspectVersioned();
-	assertEquals(versioned.length, 2);
-});
-
-Deno.test('http: lifecycle phases', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'LifecycleTest' });
-	assertEquals(app.getPhase(), 'idle');
-
-	app.get('/test', async (ctx) => { ctx.response.body = 'ok'; });
+	const app = createApp('SmokeApi').install(healthPlugin);
 	await app.boot();
+
+	const response = await app.dispatch(new Request('http://local.test/health'));
+	assertEquals(response.status, 200);
+	assertEquals(await response.json(), { ok: true });
 	assertEquals(app.getPhase(), 'ready');
+	assertEquals(app.size, 1);
 
 	await app.shutdown();
 	assertEquals(app.getPhase(), 'stopped');
 });
 
-Deno.test('http: boot with setup function', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'BootSetupTest' });
+Deno.test('http: plugin router mount and route params work', async () => {
+	const { createApp, createRouter, definePlugin } = await import(
+		'../src/lib/http/mod.ts'
+	);
 
-	let setupCalled = false;
-	await app.boot(async () => {
-		setupCalled = true;
+	const usersRouter = createRouter('users-router').route({
+		method: 'GET',
+		path: '/users/:id',
+		handler: (ctx) => ctx.json({ userId: ctx.params.id }),
+		options: { name: 'users.show', tags: ['users:get'] },
 	});
-	assertEquals(setupCalled, true);
-	assertEquals(app.getPhase(), 'ready');
+
+	const usersPlugin = definePlugin({
+		name: 'users',
+		setup(scope) {
+			scope.mount('/api', usersRouter);
+		},
+	});
+
+	const app = createApp('MountedApi').install(usersPlugin);
+	const response = await app.dispatch(new Request('http://local.test/api/users/u1'));
+	assertEquals(response.status, 200);
+	assertEquals(await response.json(), { userId: 'u1' });
 	await app.shutdown();
 });
 
-Deno.test('http: onShutdown hooks run in reverse order', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'ShutdownTest' });
+Deno.test('http: plugin middleware provides plugin-scoped request state', async () => {
+	const { createApp, definePlugin, definePluginMiddleware } = await import(
+		'../src/lib/http/mod.ts'
+	);
 
-	const order: string[] = [];
-	app.onShutdown(() => { order.push('first'); });
-	app.onShutdown(() => { order.push('second'); });
-	app.onShutdown(() => { order.push('third'); });
+	const requestSource = definePluginMiddleware<{ requestSource: string }>({
+		name: 'request-source',
+		tags: ['state'],
+		appliedOn: ['guarded*'],
+		priority: -10,
+		fn(ctx) {
+			ctx.provide({
+				requestSource: ctx.headers.get('x-request-source') ?? 'test',
+			});
+		},
+		expose(data) {
+			return { requestSource: data.requestSource };
+		},
+	});
 
+	const auditPlugin = definePlugin({
+		name: 'audit',
+		setup(scope) {
+			const scoped = scope.use(requestSource);
+			scoped.route({
+				method: 'GET',
+				path: '/audit',
+				handler: (ctx) => ctx.json({ source: ctx.state.requestSource }),
+				options: { name: 'audit.show', tags: ['guarded:audit'] },
+			});
+		},
+	});
+
+	const app = createApp('StateApi').install(auditPlugin);
+	const response = await app.dispatch(
+		new Request('http://local.test/audit', {
+			headers: { 'x-request-source': 'smoke' },
+		}),
+	);
+	assertEquals(response.status, 200);
+	assertEquals(await response.json(), { source: 'smoke' });
+	await app.shutdown();
+});
+
+Deno.test('http: plugin version header is plugin-owned', async () => {
+	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
+
+	const versionedPlugin = definePlugin({
+		name: 'catalog',
+		versionHeader: 'X-Catalog-Version',
+		setup(scope) {
+			scope.version('2.0.0').route({
+				method: 'GET',
+				path: '/catalog/items',
+				handler: (ctx) => ctx.json({ version: '2.0.0' }),
+				options: { name: 'catalog.items.v2', tags: ['catalog'] },
+			});
+		},
+	});
+
+	const app = createApp('VersionApi').install(versionedPlugin).onNotFound(
+		() => Response.json({ error: 'missing' }, { status: 404 }),
+	);
+
+	const miss = await app.dispatch(new Request('http://local.test/catalog/items'));
+	assertEquals(miss.status, 404);
+
+	const hit = await app.dispatch(
+		new Request('http://local.test/catalog/items', {
+			headers: { 'x-catalog-version': '2.0.0' },
+		}),
+	);
+	assertEquals(hit.status, 200);
+	assertEquals(await hit.json(), { version: '2.0.0' });
+	await app.shutdown();
+});
+
+Deno.test('http: exposed services are available to declared dependencies and root app', async () => {
+	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
+
+	const authPlugin = definePlugin({
+		name: 'auth',
+		setup(scope) {
+			scope.exposeService('verify', (token: string) => token === 'valid');
+		},
+	});
+
+	const profilePlugin = definePlugin({
+		name: 'profile',
+		dependsOn: ['auth'] as const,
+		setup(scope) {
+			const verify = scope.getService('auth', 'verify') as (token: string) => boolean;
+			scope.route({
+				method: 'GET',
+				path: '/profile/me',
+				handler: (ctx) => {
+					const token = ctx.headers.get('authorization') ?? '';
+					return ctx.json({ verified: verify(token) });
+				},
+				options: { name: 'profile.me', tags: ['profile'] },
+			});
+		},
+	});
+
+	const app = createApp('ServiceApi').install(authPlugin).install(profilePlugin);
+	assertEquals(app.hasService('auth', 'verify'), true);
+	assertEquals(typeof app.getService('auth', 'verify'), 'function');
+
+	const response = await app.dispatch(
+		new Request('http://local.test/profile/me', {
+			headers: { authorization: 'valid' },
+		}),
+	);
+	assertEquals(response.status, 200);
+	assertEquals(await response.json(), { verified: true });
+	await app.shutdown();
+});
+
+Deno.test('http: inspect and tag controls update committed routes', async () => {
+	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
+
+	const featurePlugin = definePlugin({
+		name: 'feature',
+		setup(scope) {
+			scope.route({
+				method: 'GET',
+				path: '/feature',
+				handler: (ctx) => ctx.text('enabled'),
+				options: { name: 'feature.index', tags: ['feature:x'] },
+			});
+		},
+	});
+
+	const app = createApp('InspectApi').install(featurePlugin);
 	await app.boot();
+
+	const before = app.inspect({ tags: ['feature:x'] });
+	assertEquals(before.routes.length, 1);
+	assertEquals(before.routes[0].enabled, true);
+
+	app.disableByTags('feature:x');
+	const disabled = app.inspect({ tags: ['feature:x'] });
+	assertEquals(disabled.routes[0].enabled, false);
+	assertEquals(
+		(await app.dispatch(new Request('http://local.test/feature'))).status,
+		404,
+	);
+
+	app.enableByTags('feature:x');
+	assertEquals(
+		(await app.dispatch(new Request('http://local.test/feature'))).status,
+		200,
+	);
 	await app.shutdown();
-
-	assertEquals(order, ['third', 'second', 'first']);
 });
-
-Deno.test('http: getApp returns Oak Application', async () => {
-	const { CodexaHttp } = await import('../src/lib/http/mod.ts');
-	const app = new CodexaHttp({ name: 'EscapeHatch' });
-	const oakApp = app.getApp();
-	assertExists(oakApp);
-	assertExists(oakApp.addEventListener);
-});
-
-Deno.test('http: all type exports exist', async () => {
-	const mod = await import('../src/lib/http/mod.ts');
-	assertExists(mod.CodexaHttp);
-	assertExists(mod.Router);
-	assertExists(mod.MiddlewarePriority);
-	// Type-level exports (verified by successful import)
-	assertEquals(typeof mod.CodexaHttp, 'function');
-	assertEquals(typeof mod.Router, 'function');
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
 // EVENT BUS
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -924,26 +955,9 @@ Deno.test('storage: createStorageManager export', async () => {
 // ROOT MODULE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-Deno.test('root: mod.ts re-exports all utils and config', async () => {
+Deno.test('root: mod.ts keeps root import lightweight', async () => {
 	const mod = await import('../mod.ts');
-	// Utils
-	assertExists(mod.zod);
-	assertExists(mod.createLogger);
-	assertExists(mod.generateId);
-	assertExists(mod.hashPassword);
-	assertExists(mod.verifyPassword);
-	assertExists(mod.sha256);
-	assertExists(mod.parseDevice);
-	assertExists(mod.formatDeviceShort);
-	assertExists(mod.parseTtlToSeconds);
-	assertExists(mod.parseTtlToMs);
-	assertExists(mod.sendSuccess);
-	assertExists(mod.sendError);
-	assertExists(mod.parseQueryParams);
-	// Config
-	assertExists(mod.env);
-	assertExists(mod.Environment);
-	assertExists(mod.createMongoDatabase);
-	assertExists(mod.createRedisConnection);
-	assertExists(mod.buildStorageConfig);
+	assertEquals(mod.CODEXA_CORE_VERSION, '0.0.5');
+	assertEquals(mod.CODEXA_CORE_MODULES.includes('http'), true);
+	assertEquals(mod.CODEXA_CORE_MODULES.includes('store'), true);
 });

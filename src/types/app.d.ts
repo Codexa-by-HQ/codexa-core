@@ -372,19 +372,21 @@ export interface StorageProvider {
 	): Promise<SignedUploadResult>;
 }
 
-// HTTP / API
+// Native HTTP response payloads
+export interface ResponseMeta {
+	timestamp: string;
+	path?: string;
+	requestId?: string;
+	[key: string]: unknown;
+}
+
 export interface ApiResponse<T = unknown> {
 	success: boolean;
 	message?: string;
 	data?: T;
 	error?: string;
 	errors?: unknown;
-	meta?: {
-		timestamp: string;
-		path?: string;
-		requestId?: string;
-		[key: string]: unknown;
-	};
+	meta?: ResponseMeta;
 }
 
 export interface PaginationMeta {
@@ -400,7 +402,7 @@ export interface PaginatedResponse<T = unknown> extends ApiResponse<T[]> {
 	pagination: PaginationMeta;
 }
 
-// Metrics
+// Native request/response metrics
 export interface RequestMetrics {
 	timestamp: string;
 	duration: number;

@@ -1,107 +1,42 @@
 /**
  * @module @codexa/core/http
  *
- * HTTP framework for Codexa applications.
- * Built on top of Oak - so no need to install `@oak/oak` separately.
+ * Plugin-first HTTP for Codexa applications.
  *
- * @example
- * ```ts
- * import { CodexaHttp, Router, MiddlewarePriority } from '@codexa/core/http';
+ * Slogan: build APIs as installable capabilities, then let Rou3 keep request
+ * dispatch fast.
  *
- * const app = new CodexaHttp({ name: 'MyAPI' });
+ * This module is the public contract: request context, middleware, plugin,
+ * inspection, lifecycle, and helper types live here so plugin authors can use
+ * module augmentation from one predictable import path.
  *
- * const usersRouter = new Router();
- * usersRouter.get('/', (ctx) => { ctx.response.body = { users: [] }; });
+ * `	s
+ * import { createApp, definePlugin } from '@codexa/core/http';
  *
- * app.router('/api/users', usersRouter);
- * app.get('/health', (ctx) => { ctx.response.body = { status: 'ok' }; });
+ * const healthPlugin = definePlugin({
+ *   name: 'health',
+ *   setup(scope) {
+ *     scope.route({
+ *       method: 'GET',
+ *       path: '/health',
+ *       handler: (ctx) => ctx.json({ ok: true }),
+ *       options: { name: 'health.check', tags: ['public', 'health'] },
+ *     });
+ *   },
+ * });
  *
+ * const app = createApp('api').install(healthPlugin);
  * await app.boot();
  * await app.listen({ port: 8000 });
- * ```
+ * `
  */
 
-import { Application, Middleware, Router } from '@oak/oak';
-import type { Context, Next, RouteParams, RouterContext } from '@oak/oak';
-import type { DeviceInfo, RequestMetrics } from '../../types/app.d.ts';
+import { HTTP_METHODS } from './_internals/constants.ts';
 
-// Re-export Oak's Router so consumers don't need @oak/oak as a direct dependency.
-export { Router } from '@oak/oak';
-export type { Context, Next, RouteParams, RouterContext } from '@oak/oak';
-
-/**
- * Plugins augment this interface to inject typed state into `ctx.state`.
- *
- * @example — in your plugin's declaration file:
- * ```ts
- * declare module '@codexa/core/http' {
- *   interface PluginStateMap {
- *     auth: { userId: string; role: string; permissions: string[] }
- *   }
- * }
- * // Now ctx.state.auth.userId is fully typed
- * ```
- */
-// deno-lint-ignore no-empty-interface
-export interface PluginStateMap {}
-
-type PluginState = {
-	[K in keyof PluginStateMap]?: PluginStateMap[K];
-};
-
-export interface OakAppState extends PluginState {
-	requestId?: string;
-	startTime?: number;
-	device?: DeviceInfo;
-	metrics?: RequestMetrics;
-}
-
-export type SafeProvide = Omit<
-	Record<string, unknown>,
-	keyof OakAppState | keyof PluginStateMap
->;
-export type Empty = Record<string, never>;
-
-/**
- * Typed Oak context with optional state injection.
- * Includes the `provide(data)` method for dynamic per-request injection.
- * The handler calls `ctx.provide(data)` to store computed values;
- * the framework exposes them via the `provide` callback in UseOptions.
- */
-export type AppContext<S extends SafeProvide = Empty> =
-	& Context<
-		OakAppState & S
-	>
-	& {
-		provide(data: unknown): void;
-	};
-
-export type AppNext = Next;
-export type AppMiddleware<
-	P extends SafeProvide = Empty,
-> = (
-	ctx: AppContext<P>,
-	next: AppNext,
-) => Promise<void> | void;
-
-/** Use AppRouterContext when your handler needs BOTH:
- * • ctx.state.*  (requestId, device, etc. - from IOakAppState)
- * • ctx.params.* (path params like /:id, /:userId    — from RouterContext)
- *
- * R = the route path string literal, e.g. '/users/:userId'
- *     Oak automatically infers ctx.params shape from R.
- *
- * S is always locked to IOakAppState so you never repeat it.
- */
-export type AppRouterContext<
-	R extends string,
-	S extends SafeProvide = Empty,
-> = RouterContext<
-	R,
-	RouteParams<R>,
-	OakAppState & S
->;
-
+export {
+	DEFAULT_VERSION_HEADER,
+	HTTP_METHODS,
+} from './_internals/constants.ts';
 export type LifeCyclePhase =
 	| 'idle'
 	| 'booting'
@@ -110,414 +45,653 @@ export type LifeCyclePhase =
 	| 'shutting_down'
 	| 'stopped';
 
-export type Hook = () => void | Promise<void>; // this hook can be used for shutdown or any other purpose
+export type HttpMethod = (typeof HTTP_METHODS)[number];
+export type Hook = () => void | Promise<void>;
 
-export enum MiddlewarePriority {
-	/** Error boundary, CORS, helmet, body parsing, query parsing, content-type, timing, request ID, device parsing. */
-	PRE_SETUP = 0,
-	/** Any critical middleware should be placed here. */
-	CRITICAL = 1,
-	/** Auth parsing, token validation, session hydration. */
-	AUTH = 20,
-	/** RBAC, ABAC, permission checks. */
-	SECURITY = 30,
-	/** Business logic / controllers. */
-	BUSINESS = 40,
-	/** 404 handler, fallback routes. */
-	FALLBACK = 50,
+export interface AppListenOptions {
+	port?: number;
+	hostname?: string;
+	signal?: AbortSignal;
+	onListen?: (addr: Deno.NetAddr) => void;
+	secure?: boolean;
+	cert?: string;
+	key?: string;
 }
 
-export const PRIORITY_LABELS: Record<number, string> = {
-	[MiddlewarePriority.PRE_SETUP]: 'PRE_SETUP',
-	[MiddlewarePriority.CRITICAL]: 'CRITICAL',
-	[MiddlewarePriority.AUTH]: 'AUTH',
-	[MiddlewarePriority.SECURITY]: 'SECURITY',
-	[MiddlewarePriority.BUSINESS]: 'BUSINESS',
-	[MiddlewarePriority.FALLBACK]: 'FALLBACK',
+export type StateShape = Record<string, unknown>;
+export type Empty = Record<never, never>;
+
+export interface BaseState {
+	readonly requestId?: string;
+	readonly startTime?: number;
+}
+
+type ReservedStateKey = keyof BaseState;
+
+/**
+ * Prevents state extensions from using reserved keys defined in BaseState.
+ *
+ * Extract<A, B> keeps only the members of A that are assignable to B.
+ * If T contains any reserved key (e.g. "requestId" or "startTime"),
+ * the resulting type becomes never.
+ */
+type NoReservedKeys<T> = Extract<keyof T, ReservedStateKey> extends never ? T
+	: never;
+
+/**
+* Creates a readonly copy of T by mapping over all of its properties.
+*
+* Example:
+*   type User = { name: string; age: number };
+*
+*   type Result = Simplify<User>;
+*
+* Result:
+*   {
+*     readonly name: string;
+*     readonly age: number;
+*   }
+*/
+type Simplify<T> = { readonly [K in keyof T]: T[K] };
+
+/**
+ * Converts a union type into an intersection type.
+ *
+ * Example:
+ *   { name: string } | { age: number }
+ *
+ * becomes:
+ *   { name: string } & { age: number }
+ *
+ * which behaves like:
+ *   { name: string; age: number }
+ */
+type UnionToIntersection<T> =
+	(T extends unknown ? (value: T) => void : never) extends
+	(value: infer Result) => void ? Result
+	: never;
+
+export type SafeState<T extends StateShape = Empty> = NoReservedKeys<T>;
+
+export type RequestState<Ext extends StateShape = Empty> =
+	& Readonly<BaseState>
+	& Readonly<SafeState<Ext>>;
+
+/**
+* Removes route parameter modifiers from a parameter name.
+*
+* Examples:
+*   "id?"      -> "id"
+*   "id*"      -> "id"
+*   "id+"      -> "id"
+*   "id(\\d+)" -> "id"
+*/
+type StripModifiers<S extends string> = S extends `${infer N}?`
+	? StripModifiers<N>
+	: S extends `${infer N}+` ? StripModifiers<N>
+	: S extends `${infer N}*` ? StripModifiers<N>
+	: S extends `${infer N}(${string})` ? StripModifiers<N>
+	: S;
+
+/**
+* Extracts route parameter names from a path string and maps them
+* to readonly string properties.
+*
+* Example:
+*   "/users/:userId/posts/:postId"
+*
+* becomes:
+*   {
+*     readonly userId: string;
+*     readonly postId: string;
+*   }
+*/
+export type ExtractRouteParams<Path extends string> = Path extends
+	`${string}:${infer Raw}/${infer Rest}` ? {
+		readonly [
+		K in StripModifiers<Raw> | keyof ExtractRouteParams<`/${Rest}`>
+		]: string;
+	}
+	: Path extends `${string}:${infer Raw}`
+	? { readonly [K in StripModifiers<Raw>]: string }
+	: Empty;
+
+/**
+* Conditionally adds a provide() method.
+*
+* If TProvide is never, produces an empty object type.
+* Otherwise adds:
+*
+*   provide(data: TProvide): void
+*/
+type WithProvide<TProvide> = [TProvide] extends [never] ? Empty
+	: { provide(data: TProvide): void };
+
+export type RouteParams = Readonly<Record<string, string>>;
+
+export interface ResponseHelpers {
+	json(data: unknown, init?: ResponseInit): Response;
+	text(data: string, init?: ResponseInit): Response;
+	html(data: string, init?: ResponseInit): Response;
+	markdown(content: string, init?: ResponseInit): Response;
+	redirect(url: string, status?: 301 | 302 | 307 | 308): Response;
+	stream(body: ReadableStream<Uint8Array>, init?: ResponseInit): Response;
+	send(body?: BodyInit | null, init?: ResponseInit): Response;
+}
+
+export type Context<
+	StateExt extends StateShape = Empty,
+	Params extends Record<string, string> = RouteParams,
+	LocalsExt extends StateShape = Empty,
+	TProvide = never,
+> =
+	& {
+		readonly request: Request;
+		readonly url: URL;
+		readonly query: URLSearchParams;
+		readonly headers: Headers;
+		readonly params: Readonly<Params>;
+		readonly state: RequestState<StateExt>;
+		readonly locals: Readonly<LocalsExt>;
+	}
+	& ResponseHelpers
+	& WithProvide<TProvide>;
+
+export interface OpenApiResponse {
+	description: string;
+	schema?: unknown;
+	headers?: StateShape;
+}
+
+export interface OpenApiConfig {
+	summary?: string;
+	description?: string;
+	tags?: readonly string[];
+	deprecated?: boolean;
+	operationId?: string;
+	params?: unknown;
+	query?: unknown;
+	headers?: unknown;
+	body?: unknown;
+	bodyContentType?: string;
+	responses?: Record<number | string, OpenApiResponse>;
+	security?: ReadonlyArray<Record<string, readonly string[]>>;
+	exclude?: boolean;
+}
+
+type MiddlewareResult = void | Response | Promise<void | Response>;
+
+export type QueryValue = string | readonly string[];
+
+export interface HookResponseSnapshot {
+	readonly status: number;
+	readonly statusText: string;
+	readonly ok: boolean;
+	readonly redirected: boolean;
+	readonly type: ResponseType;
+	readonly url: string;
+	readonly headers: Readonly<Record<string, string>>;
+	readonly hasBody: boolean;
+	readonly bodyUsed: boolean;
+	readonly body: null;
+}
+
+export interface HookErrorSnapshot {
+	readonly name: string;
+	readonly message: string;
+}
+
+export interface HookRouteSnapshot {
+	readonly name: string;
+	readonly method: HttpMethod;
+	readonly path: string;
+	readonly pluginName?: string;
+	readonly version?: string;
+	readonly versionHeader?: string;
+}
+
+export interface RequestHookEvent<StateExt extends StateShape = Empty> {
+	readonly params: RouteParams;
+	readonly query: Readonly<Record<string, QueryValue>>;
+	readonly path: string;
+	readonly method: string;
+	readonly state: RequestState<StateExt>;
+	readonly locals: Readonly<StateShape>;
+	readonly route?: HookRouteSnapshot;
+	readonly response: HookResponseSnapshot;
+}
+
+export type RequestSuccessHook<StateExt extends StateShape = Empty> = (
+	event: RequestHookEvent<StateExt>,
+) => void | Promise<void>;
+
+export type RequestErrorHook<StateExt extends StateShape = Empty> = (
+	event: RequestHookEvent<StateExt> & {
+		readonly error?: HookErrorSnapshot;
+	},
+) => void | Promise<void>;
+
+export type AppMiddlewareFn<
+	StateExt extends StateShape = Empty,
+	TProvide = never,
+	LocalsExt extends StateShape = Empty,
+> = (
+	ctx: Context<StateExt, RouteParams, LocalsExt, TProvide>,
+) => MiddlewareResult;
+
+interface MiddlewareBaseConfig {
+	priority?: number;
+}
+
+export type MiddlewareConfig<
+	StateExt extends StateShape = Empty, // global plugin state
+	TProvide extends StateShape = never, // middleware injected from provide (route/global)
+	TExposed extends StateShape = [TProvide] extends [never] ? Empty
+	: TProvide, // what middleware options will expose T from "expose"
+	LocalsExt extends StateShape = Empty, // local state from plugin route.
+> = [TProvide] extends [never] ? MiddlewareBaseConfig & {
+	fn: AppMiddlewareFn<StateExt, never, LocalsExt>;
+	expose?: never;
+}
+	: MiddlewareBaseConfig & {
+		fn: AppMiddlewareFn<StateExt, TProvide, LocalsExt>;
+		expose(data: TProvide): SafeState<TExposed>;
+	};
+
+type MiddlewareInputCtx<
+	StateExt extends StateShape,
+	LocalsExt extends StateShape,
+> = Context<StateExt, RouteParams, LocalsExt, never>;
+
+type MiddlewareInputCtxWithProvide<
+	StateExt extends StateShape,
+	LocalsExt extends StateShape,
+	TProvide extends StateShape,
+> = MiddlewareInputCtx<StateExt, LocalsExt> & {
+	provide(data: TProvide): void;
 };
 
-export interface ListenOptions {
-	host?: string;
-	port?: number;
-	signal?: AbortSignal;
+export type MiddlewareInputWithoutExpose<
+	StateExt extends StateShape = StateShape,
+	LocalsExt extends StateShape = StateShape,
+> = MiddlewareBaseConfig & {
+	fn(ctx: MiddlewareInputCtx<StateExt, LocalsExt>): MiddlewareResult;
+	expose?: never;
+};
+
+export type MiddlewareInputWithExpose<
+	TProvide extends StateShape,
+	TExposed extends StateShape = TProvide,
+	StateExt extends StateShape = StateShape,
+	LocalsExt extends StateShape = StateShape,
+> = MiddlewareBaseConfig & {
+	fn(
+		ctx: MiddlewareInputCtxWithProvide<StateExt, LocalsExt, TProvide>,
+	): MiddlewareResult;
+	expose(data: TProvide): SafeState<TExposed>;
+};
+
+export interface RouteMiddleware extends MiddlewareBaseConfig {
+	fn(ctx: never): MiddlewareResult;
+	expose?(data: never): StateShape;
 }
 
-/** Internal processing entry stored in the registry. */
-export interface MiddlewareEntry<P extends SafeProvide = Empty> {
-	name: string;
-	priority: number;
-	handler: AppMiddleware<P>;
-	order: number;
-	tags: string[];
-	enabled: boolean;
-	/**
-	 * When true, this entry is a tag-control sentinel for an HTTP-method shortcut
-	 * route registered on the shared _methodRouter. The sentinel carries tags +
-	 * enabled state but its handler is a no-op pass-through. It must NOT be
-	 * flushed to Oak during #commit() - the real dispatch runs inside _methodRouter.
-	 */
-	isSentinel?: boolean;
-}
+type MiddlewareExposed<T> = T extends
+	MiddlewareConfig<infer _State, infer _Provide, infer Exposed, infer _Locals>
+	? Exposed
+	: Empty;
 
-/** What the developer provides when calling use() / get() / post() etc. */
-export interface UseOptions<P extends SafeProvide = Empty> {
+export type MiddlewareLocals<Middlewares extends readonly unknown[]> =
+	Middlewares extends readonly [] ? Empty
+	: Simplify<UnionToIntersection<MiddlewareExposed<Middlewares[number]>>>;
+
+export interface UseOptions<
+	TExposed extends StateShape = Empty,
+	TProvide extends StateShape = TExposed,
+> {
+	tags?: readonly string[];
+	appliedOn?: readonly string[];
 	name?: string;
 	priority?: number;
 	enabled?: boolean;
-	tags?: string[];
-	/**
-	 * Static or dynamic state injection.
-	 *
-	 * **Static** (existing): pass a plain object — it is merged into `ctx.state`
-	 * *before* the handler runs.
-	 *   ```ts
-	 *   provide: { tenantId: 'default' }
-	 *   ```
-	 *
-	 * **Dynamic** (new): pass a callback — the handler calls `ctx.provide(data)`
-	 * with any computed values; the framework calls this function with that data
-	 * *after* the handler resolves and merges the return value into `ctx.state`.
-	 *   ```ts
-	 *   // inside handler:
-	 *   ctx.provide({ userId: decoded.sub, role: decoded.role });
-	 *
-	 *   // in options:
-	 *   provide: (data) => ({ userId: (data as any).userId, role: (data as any).role })
-	 *   ```
-	 *
-	 * If the handler never calls `ctx.provide()` and `provide` is a function,
-	 * nothing is merged into `ctx.state`.
-	 */
-	provide?: P | ((data: unknown) => P);
-	onSuccess?: (ctx: AppContext<P>) => void | Promise<void>;
-	onError?: (ctx: AppContext<P>, error: unknown) => void | Promise<void>;
+	expose?: (data: TProvide) => SafeState<TExposed>;
 }
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+export type UseOptionsWithoutExpose =
+	& Omit<UseOptions<Empty, never>, 'expose'>
+	& {
+		expose?: never;
+	};
 
-export interface VersionedRouteEntry {
-	version: string;
-	method: HttpMethod;
-	path: string;
-	handler: AppMiddleware;
-	options: UseOptions;
-	enabled: boolean; // runtime toggle (tags can flip this route)
+export type UseOptionsWithExpose<
+	TExposed extends StateShape,
+	TProvide extends StateShape,
+> = Omit<UseOptions<SafeState<TExposed>, TProvide>, 'expose'> & {
+	expose: (data: TProvide) => SafeState<TExposed>;
+};
+
+export type PluginMiddlewareConfig<
+	StateExt extends StateShape = Empty,
+	TProvide extends StateShape = never,
+	TExposed extends StateShape = [TProvide] extends [never] ? Empty
+	: TProvide,
+	LocalsExt extends StateShape = Empty,
+> = [TProvide] extends [never] ? UseOptionsWithoutExpose & {
+	fn: AppMiddlewareFn<StateExt, never, LocalsExt>;
+}
+	: UseOptionsWithExpose<TExposed, TProvide> & {
+		fn: AppMiddlewareFn<StateExt, TProvide, LocalsExt>;
+	};
+
+export interface PluginMiddleware {
+	tags?: readonly string[];
+	appliedOn?: readonly string[];
+	name?: string;
+	priority?: number;
+	enabled?: boolean;
+	fn(ctx: never): MiddlewareResult;
+	expose?(data: never): StateShape;
 }
 
-export interface VersionedRouterEntry {
-	version: string;
-	prefix: string;
-	routerInstance: Router;
-	options: UseOptions;
-	enabled: boolean; // runtime toggle (tags can flip this router)
+export interface RouteOptions<
+	Middlewares extends readonly unknown[] = readonly RouteMiddleware[],
+> {
+	tags?: readonly string[];
+	name?: string;
+	enabled?: boolean;
+	middleware?: Middlewares;
+	openapi?: OpenApiConfig;
 }
 
-export interface IVersionedScope {
-	get<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	post<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	put<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	delete<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	patch<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	router<P extends SafeProvide = Empty>(
+export type RouteHandler<
+	Route extends string = string,
+	StateExt extends StateShape = Empty,
+	LocalsExt extends StateShape = Empty,
+> = (
+	ctx: Context<StateExt, ExtractRouteParams<Route>, LocalsExt>,
+) => Response | Promise<Response>;
+
+export interface RouteDefinition<
+	Route extends string = string,
+	StateExt extends StateShape = Empty,
+	Middlewares extends readonly unknown[] = readonly [],
+> {
+	method: HttpMethod | readonly HttpMethod[];
+	path: Route;
+	handler: RouteHandler<Route, StateExt, MiddlewareLocals<Middlewares>>;
+	options?: RouteOptions<Middlewares>;
+}
+
+export interface IRouteScope<StateExt extends StateShape = Empty> {
+	route<
+		const Route extends string,
+		const Middlewares extends readonly unknown[] = readonly [],
+	>(definition: RouteDefinition<Route, StateExt, Middlewares>): this;
+}
+
+export interface ICodexaHttpRouter<
+	StateExt extends StateShape = Empty,
+> extends IRouteScope<StateExt> {
+	getName(): string;
+}
+
+// deno-lint-ignore no-empty-interface
+export interface IPluginConfigMap { }
+
+// deno-lint-ignore no-empty-interface
+export interface IPluginServiceMap { }
+
+export type PluginConfig<Name extends string> = Name extends
+	keyof IPluginConfigMap ? IPluginConfigMap[Name] : void;
+
+export type PluginServices<Name extends string> = Name extends
+	keyof IPluginServiceMap ? IPluginServiceMap[Name]
+	: Record<string, unknown>;
+
+export interface IPluginVersionedScope<
+	StateExt extends StateShape = Empty,
+	PluginName extends string = string,
+	Deps extends string = never,
+> extends IRouteScope<StateExt> {
+	mount<RouterState extends StateShape>(
+		router: ICodexaHttpRouter<SafeState<RouterState>>,
+	): IPluginScope<SafeState<StateExt & RouterState>, PluginName, Deps>;
+	mount<RouterState extends StateShape>(
 		prefix: string,
-		routerInstance: Router,
-		options?: Omit<UseOptions<P>, 'name'>,
-	): this;
+		router: ICodexaHttpRouter<SafeState<RouterState>>,
+	): IPluginScope<SafeState<StateExt & RouterState>, PluginName, Deps>;
 }
 
-export interface ICodexaHttp {
-	// unversioned middleware
-	use<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P> | Router,
-		options?: UseOptions<P>,
-	): this;
-	router<P extends SafeProvide = Empty>(
+export interface IPluginScope<
+	StateExt extends StateShape = Empty,
+	PluginName extends string = string,
+	Deps extends string = never,
+> extends IRouteScope<StateExt> {
+	mount<RouterState extends StateShape>(
+		router: ICodexaHttpRouter<SafeState<RouterState>>,
+	): IPluginScope<SafeState<StateExt & RouterState>, PluginName, Deps>;
+	mount<RouterState extends StateShape>(
 		prefix: string,
-		routerInstance: Router,
-		options?: Omit<UseOptions<P>, 'name'>,
+		router: ICodexaHttpRouter<SafeState<RouterState>>,
+	): IPluginScope<SafeState<StateExt & RouterState>, PluginName, Deps>;
+
+	use(
+		fn: AppMiddlewareFn<StateExt, never>,
+		options?: UseOptionsWithoutExpose,
 	): this;
-	group<P extends SafeProvide = Empty>(
-		groupName: string,
-		items: Array<AppMiddleware<P> | Router>,
-		options?: UseOptions<P>,
+	use<TExposed extends StateShape, TProvide extends StateShape>(
+		fn: AppMiddlewareFn<StateExt, TProvide>,
+		options: UseOptionsWithExpose<TExposed, TProvide>,
+	): IPluginScope<SafeState<StateExt & TExposed>, PluginName, Deps>;
+	use(
+		middleware: PluginMiddlewareConfig<StateExt, never, Empty>,
 	): this;
-	useIf<P extends SafeProvide = Empty>(
-		condition: (ctx: AppContext<P>) => boolean | Promise<boolean>,
-		item: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	useSafe<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P>,
-		options?: UseOptions<P>,
+	use<TExposed extends StateShape, TProvide extends StateShape>(
+		middleware: PluginMiddlewareConfig<StateExt, TProvide, TExposed>,
+	): IPluginScope<SafeState<StateExt & TExposed>, PluginName, Deps>;
+
+	version(
+		v: string,
+	): IPluginVersionedScope<StateExt, PluginName, Deps>;
+
+	onShutdown(hook: Hook): this;
+	onSuccess(hook: RequestSuccessHook<StateExt>): this;
+	onError(hook: RequestErrorHook<StateExt>): this;
+
+	exposeService<
+		ServiceName extends keyof PluginServices<PluginName> & string,
+	>(
+		name: ServiceName,
+		service: PluginServices<PluginName>[ServiceName],
 	): this;
 
-	// unversioned HTTP shortcuts
-	get<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	post<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	put<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	delete<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	patch<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
+	getService<
+		Name extends Deps,
+		ServiceName extends keyof PluginServices<Name> & string,
+	>(
+		pluginName: Name,
+		serviceName: ServiceName,
+	): PluginServices<Name>[ServiceName];
 
-	// versioning -> exact X-Version header match
-	version(v: string): IVersionedScope;
+	getServices<Name extends Deps>(pluginName: Name): PluginServices<Name>;
+	getDependencyNames(): readonly Deps[];
+	hasDependency(name: string): boolean;
+	hasPlugin(name: string): boolean;
+	hasService(pluginName: string, serviceName: string): boolean;
+}
 
-	// tag controls -> runtime enable/disable
+export interface IPluginMetaData {
+	license?: string;
+	description?: string;
+	author?: string;
+	repository?: string;
+	tags?: readonly string[];
+}
+
+export interface ICodexaPlugin<
+	Name extends string,
+	Config = PluginConfig<Name>,
+	Deps extends string = never,
+> {
+	name: Name;
+	metadata?: IPluginMetaData;
+	versionHeader?: string;
+	dependsOn?: readonly Deps[];
+	setup(
+		scope: IPluginScope<Empty, Name, Deps>,
+		config: Config,
+	): void;
+}
+
+export type CodexaPluginDefinition<
+	Name extends string,
+	Config,
+	Deps extends readonly string[],
+> =
+	& Omit<ICodexaPlugin<Name, Config, Deps[number]>, 'dependsOn'>
+	& {
+		dependsOn?: Deps;
+	};
+
+export interface InspectQuery {
+	tags?: readonly string[];
+	plugins?: readonly string[];
+	routes?: readonly string[];
+	services?: readonly string[];
+	methods?: readonly HttpMethod[];
+	versions?: readonly string[];
+	includeDisabled?: boolean;
+}
+
+export interface InstalledPluginInfo {
+	name: string;
+	metadata?: IPluginMetaData;
+}
+
+export type MiddlewareKind = 'plugin' | 'inline';
+
+export interface InspectMiddlewareRef {
+	readonly name: string;
+	readonly kind: MiddlewareKind;
+	readonly priority: number;
+	readonly pluginName?: string;
+}
+
+export interface InspectRoute {
+	readonly name: string;
+	readonly method: HttpMethod;
+	readonly path: string;
+	readonly enabled: boolean;
+	readonly configuredEnabled: boolean;
+	readonly tags: readonly string[];
+	readonly pluginName?: string;
+	readonly version?: string;
+	readonly versionHeader?: string;
+	readonly openapi?: OpenApiConfig;
+	readonly middlewares: readonly InspectMiddlewareRef[];
+}
+
+export interface InspectMiddleware {
+	readonly name: string;
+	readonly kind: MiddlewareKind;
+	readonly enabled: boolean;
+	readonly tags: readonly string[];
+	readonly appliedOn: readonly string[];
+	readonly priority: number;
+	readonly pluginName?: string;
+}
+
+export interface InspectService {
+	readonly name: string;
+	readonly pluginName?: string;
+	readonly exists: boolean;
+}
+
+export interface InspectPlugin {
+	readonly name: string;
+	readonly metadata?: IPluginMetaData;
+	readonly dependsOn: readonly string[];
+	readonly services: readonly string[];
+	readonly routeCount: number;
+	readonly unversionedRouteCount: number;
+	readonly versionedRouteCount: number;
+	readonly middlewareCount: number;
+	readonly routes: readonly InspectRoute[];
+}
+
+export interface InspectSummary {
+	readonly routeCount: number;
+	readonly enabledRouteCount: number;
+	readonly disabledRouteCount: number;
+	readonly pluginCount: number;
+	readonly serviceCount: number;
+	readonly middlewareCount: number;
+}
+
+export interface InspectResult {
+	readonly query?: InspectQuery;
+	readonly summary: InspectSummary;
+	readonly routes: readonly InspectRoute[];
+	readonly middlewares: readonly InspectMiddleware[];
+	readonly plugins: readonly InspectPlugin[];
+	readonly services: readonly InspectService[];
+}
+
+export interface ICodexaHttp<
+	InstalledPlugins extends string = never,
+> extends ResponseHelpers {
+	install<const Name extends string, Deps extends string>(
+		plugin: ICodexaPlugin<Name, void, Deps>,
+	): ICodexaHttp<InstalledPlugins | Name>;
+	install<const Name extends string, Config, Deps extends string>(
+		plugin: ICodexaPlugin<Name, Config, Deps>,
+		config: Config,
+	): ICodexaHttp<InstalledPlugins | Name>;
+
+	getService<
+		Name extends InstalledPlugins,
+		ServiceName extends keyof PluginServices<Name> & string,
+	>(
+		pluginName: Name,
+		serviceName: ServiceName,
+	): PluginServices<Name>[ServiceName];
+	getServices<Name extends InstalledPlugins>(
+		pluginName: Name,
+	): PluginServices<Name>;
+
+	hasPlugin(name: string): boolean;
+	hasService(pluginName: string, serviceName: string): boolean;
+	installedPlugins(): readonly InstalledPluginInfo[];
+	inspect(query?: InspectQuery): InspectResult;
+
 	enableByTags(...tags: string[]): this;
 	disableByTags(...tags: string[]): this;
-	inspectByTags(
-		...tags: string[]
-	): { name: string; priority: string; enabled: boolean; tags: string[] }[];
 
-	// lifecycle
 	boot(setup?: () => Promise<void> | void): Promise<this>;
-	listen(options?: ListenOptions): Promise<void>;
+	listen(options?: AppListenOptions): Promise<void>;
+	dispatch(request: Request): Promise<Response>;
 	shutdown(): Promise<void>;
 	whenStopped(): Promise<void>;
 	onShutdown(hook: Hook): this;
-
-	// introspection
-	inspect(): {
-		name: string;
-		priority: string;
-		order: number;
-		enabled: boolean;
-		tags: string[];
-	}[];
-	inspectVersioned(): {
-		version: string;
-		method: HttpMethod;
-		path: string;
-		name: string;
-		enabled: boolean;
-	}[];
-
-	// runtime state
+	onSuccess(hook: RequestSuccessHook<StateShape>): this;
+	onError(hook: RequestErrorHook<StateShape>): this;
+	onNotFound(handler: (req: Request) => Response | Promise<Response>): this;
+	onException(
+		handler: (err: unknown, req: Request) => Response | Promise<Response>,
+	): this;
+	hasRoute(method: HttpMethod, path: string): boolean;
+	toRegExp(method: HttpMethod, path: string): RegExp | null;
 	getPhase(): LifeCyclePhase;
-	getApp(): Application<OakAppState>;
 	get size(): number;
+	getServer(): Deno.HttpServer | undefined;
 }
 
-/**
- * Descriptive metadata attached to a plugin.
- * Surfaced in `app.inspectPlugins()` and useful for admin dashboards.
- */
-export interface PluginMetadata {
-	/** Short human-readable description of what this plugin does. */
-	description?: string;
-	/** Author name or contact email. */
-	author?: string;
-	/** SPDX license identifier, e.g. `"MIT"` or `"GPL-3.0"`. */
-	license: string;
-	/** Homepage or repository URL for documentation / issue tracking. */
-	homepage?: string;
-	/** Arbitrary keyword tags for categorisation (e.g. `['auth', 'security']`). */
-	tags?: string[];
-}
-export interface IPluginScope {
-	// same registration API as ICodexaHttp but scoped
-	use<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P> | Router,
-		options?: UseOptions<P>,
-	): this;
-	router<P extends SafeProvide = Empty>(
-		prefix: string,
-		routerInstance: Router,
-		options?: Omit<UseOptions<P>, 'name'>,
-	): this;
-	get<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	post<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	put<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	delete<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	patch<P extends SafeProvide = Empty>(
-		path: string,
-		handler: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	version(v: string): IVersionedScope;
-	group<P extends SafeProvide = Empty>(
-		groupName: string,
-		items: Array<AppMiddleware<P> | Router>,
-		options?: UseOptions<P>,
-	): this;
-	useIf<P extends SafeProvide = Empty>(
-		condition: (ctx: AppContext<P>) => boolean | Promise<boolean>,
-		item: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	useSafe<P extends SafeProvide = Empty>(
-		item: AppMiddleware<P>,
-		options?: UseOptions<P>,
-	): this;
-	// scoped tag controls -> plugin runtime enable/disable
-	enableByTags(...tags: string[]): this;
-	disableByTags(...tags: string[]): this;
-	inspectByTags(
-		...tags: string[]
-	): { name: string; priority: string; enabled: boolean; tags: string[] }[];
-
-	/**
-	 * Plugin-scoped init. Runs before routes register.
-	 * Use for DB connections, queue init, loading config from env.
-	 * Runs inside the boot() sequence automatically.
-	 */
-	init(setup: () => Promise<void> | void): this;
-
-	/**
-	 * Expose a service so sibling plugins or the root can access it.
-	 *
-	 * @example
-	 * scope.exposeService('policyChecker', new PolicyChecker(db));
-	 */
-	exposeService<T>(name: string, service: T): this;
-
-	/**
-	 * Access a service exposed by another already-installed plugin.
-	 * Throws if plugin or service not found.
-	 *
-	 * @example
-	 * const policy = scope.getService<PolicyChecker>('Codexa-auth', 'policyChecker');
-	 */
-	getService<T>(pluginName: string, serviceName: string): T;
-
-	/**
-	 * Register a shutdown hook scoped to this plugin.
-	 * Runs during app.shutdown() or app.uninstall().
-	 */
-	onShutdown(hook: Hook): this;
-
-	/**
-	 * Returns the declared dependency names of this plugin (its `dependsOn` array).
-	 *
-	 * @example
-	 * const deps = scope.getDependencyNames(); // ['auth', 'db']
-	 */
-	getDependencyNames(): string[];
-
-	/**
-	 * Returns `true` if the given plugin is both declared in `dependsOn` AND
-	 * currently installed. Safe to use as a guard before calling `getService`.
-	 *
-	 * @example
-	 * if (scope.hasDependency('cache')) {
-	 *   const cache = scope.getService<CacheService>('cache', 'client');
-	 * }
-	 */
-	hasDependency(name: string): boolean;
-
-	/**
-	 * Get ALL services exposed by a dependency plugin at once as a typed record.
-	 * Requires the plugin to be declared in `dependsOn`.
-	 *
-	 * @example
-	 * const auth = scope.getDependencyServices<{ verify: VerifyFn }>('auth');
-	 * const token = await auth.verify(rawToken);
-	 */
-	getDependencyServices<T extends Record<string, unknown>>(
-		pluginName: string,
-	): T;
-}
-/**
- * Root-provided dependency context passed to each plugin during install().
- * Type is intentionally generic — root decides what to share.
- *
- * Root passes:
- *   app.install(authPlugin, context, config)
- *
- * Plugin receives whatever root decided to put in context.
- * No hardcoded mongo/redis fields here — root owns that decision.
- *
- * Plugin authors should cast to their expected shape:
- * @example
- * const db = context.db as Db;
- * const redis = context.redis as RedisClient;
- */
-export type CodexaPluginContext = Record<string, unknown>;
-
-export interface CodexaPlugin<Config = Record<string, unknown>> {
-	name: string;
-	version: string; /** exact version string */
-	metadata: PluginMetadata;
-
-	/** Plugin names that must be installed before this one */
-	dependsOn?: string[];
-
-	/**
-	 * Called during app.install(plugin).
-	 * Plugin registers its routes, middleware, hooks, services, here using limited scope and will never touch the app directly.
-	 * scope auto-tags all registrations with plugin.name.
-	 */
-	install(
-		scope: IPluginScope,
-		context: CodexaPluginContext,
-		config?: Config,
-	): Promise<void> | void;
-
-	/**
-	 * Called during app.uninstall(plugin.name).
-	 * Plugin should clean up - disable its tags, remove hooks etc.
-	 */
-	uninstall?(scope: IPluginScope): Promise<void> | void;
-}
-// helpers
-export * from './helpers.ts';
-
-// Codexa-Http Components
-export * from './_registries/http.ts';
-export * from './_registries/version.ts';
-export * from './_registries/plugin.ts';
+// Registries
+export { createApp, http } from './_registries/http.ts';
+export { createRouter, router } from './_registries/router.ts';
+export {
+	defineMiddleware,
+	definePlugin,
+	definePluginMiddleware,
+	plugin,
+} from './_registries/plugin.ts';
