@@ -16,10 +16,13 @@
  * ```
  */
 
-export const CODEXA_CORE_VERSION = '0.0.5';
+/** Current package version published by this source tree. */
+export const CODEXA_CORE_VERSION = '0.0.6';
 
+/** Public subpath module names exported by `@codexa/core`. */
 export type CodexaCoreModule =
 	| 'http'
+	| 'openapi'
 	| 'config'
 	| 'bus'
 	| 'store'
@@ -34,8 +37,10 @@ export type CodexaCoreModule =
 	| 'response'
 	| 'query';
 
+/** Public subpath modules available from this package. */
 export const CODEXA_CORE_MODULES: readonly CodexaCoreModule[] = Object.freeze([
 	'http',
+	'openapi',
 	'config',
 	'bus',
 	'store',
