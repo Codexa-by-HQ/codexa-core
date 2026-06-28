@@ -1,3 +1,18 @@
+/**
+ * @module @codexa/core/device
+ *
+ * User-Agent parsing utilities for request logging, session metadata, and
+ * device-aware application features.
+ *
+ * @example
+ * ```ts
+ * import { parseDevice, formatDeviceShort } from '@codexa/core/device';
+ *
+ * const info = parseDevice(request.headers.get('user-agent'));
+ * console.log(formatDeviceShort(info));
+ * ```
+ */
+
 import { UAParser } from 'ua-parser-js';
 import type { DeviceInfo } from '../types/app.d.ts';
 

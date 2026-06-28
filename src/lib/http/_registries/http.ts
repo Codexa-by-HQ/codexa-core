@@ -1448,12 +1448,19 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 	}
 }
 
+/**
+ * Create a Codexa HTTP app.
+ *
+ * The app owns plugin installation, lifecycle, dispatch, tag controls, and
+ * service access from installed plugins.
+ */
 export function createApp<InstalledPlugins extends string = never>(
 	name?: string,
 ): ICodexaHttp<InstalledPlugins> {
 	return new CodexaHttpApp<InstalledPlugins>(name);
 }
 
+/** Alias for {@link createApp}. */
 export function http<InstalledPlugins extends string = never>(
 	name?: string,
 ): ICodexaHttp<InstalledPlugins> {

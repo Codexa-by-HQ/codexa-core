@@ -269,12 +269,16 @@ export class CodexaRouter<StateExt extends StateShape = Empty>
 	}
 }
 
+/**
+ * Create a reusable route collection that can be mounted inside a plugin.
+ */
 export function createRouter<StateExt extends StateShape = Empty>(
 	name?: string,
 ): ICodexaHttpRouter<StateExt> {
 	return new CodexaRouter<StateExt>(name);
 }
 
+/** Alias for {@link createRouter}. */
 export function router<StateExt extends StateShape = Empty>(
 	name?: string,
 ): ICodexaHttpRouter<StateExt> {

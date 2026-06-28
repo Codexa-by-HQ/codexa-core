@@ -1,6 +1,6 @@
-node_modules
-tests
-docs
+node_modules*/*
+tests/*
+docs/*
 .env
 
-deno.lock
+deno.lock*

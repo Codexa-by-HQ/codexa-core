@@ -1,3 +1,17 @@
+/**
+ * @module @codexa/core/ttl
+ *
+ * Parse human-readable TTL strings into seconds, milliseconds, or dates.
+ *
+ * @example
+ * ```ts
+ * import { parseTtlToSeconds, ttlToDate } from '@codexa/core/ttl';
+ *
+ * const seconds = parseTtlToSeconds('15m');
+ * const expiresAt = ttlToDate('1h');
+ * ```
+ */
+
 import { createLogger } from './logger.ts';
 const log = createLogger('TTL', {
 	level: 'error',
@@ -42,7 +56,7 @@ export function parseTtlToSeconds(ttl: string): number {
 	return value * correctTTL;
 }
 
-//  Parse a duration string to milliseconds.
+/** Parse a duration string like `"15m"` or `"2h"` to milliseconds. */
 export function parseTtlToMs(ttl: string): number {
 	return parseTtlToSeconds(ttl) * 1000;
 }

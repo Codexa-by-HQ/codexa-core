@@ -1,3 +1,19 @@
+/**
+ * @module @codexa/core/crypto
+ *
+ * Cryptographic helpers for IDs, random bytes, encodings, timing-safe
+ * comparison, and PBKDF2 password hashing.
+ *
+ * @example
+ * ```ts
+ * import { generateId, hashPassword, verifyPassword } from '@codexa/core/crypto';
+ *
+ * const id = generateId();
+ * const stored = await hashPassword('secret');
+ * const ok = await verifyPassword('secret', stored);
+ * ```
+ */
+
 import { blake2b } from '@noble/hashes/blake2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { createLogger } from './logger.ts';

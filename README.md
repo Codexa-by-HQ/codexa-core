@@ -16,6 +16,7 @@ For projects using JSR import maps:
 {
 	"imports": {
 		"@codexa/core/http": "jsr:@codexa/core/http",
+		"@codexa/core/openapi": "jsr:@codexa/core/openapi",
 		"@codexa/core/config": "jsr:@codexa/core/config",
 		"@codexa/core/bus": "jsr:@codexa/core/bus",
 		"@codexa/core/store": "jsr:@codexa/core/store",
@@ -31,6 +32,7 @@ Use subpath imports. The root module is intentionally lightweight and does not i
 
 ```ts
 import { createApp } from '@codexa/core/http';
+import { generateOpenApiDocument } from '@codexa/core/openapi';
 import { env } from '@codexa/core/config';
 import { eventBus } from '@codexa/core/bus';
 import { initializeStore, store } from '@codexa/core/store';
@@ -41,22 +43,23 @@ import { createLogger } from '@codexa/core/logger';
 
 Available public subpaths:
 
-| Import | Purpose |
-| --- | --- |
-| `@codexa/core/http` | Plugin-first HTTP framework built on Deno and Rou3 |
-| `@codexa/core/config` | Environment, MongoDB, Redis, and storage config helpers |
-| `@codexa/core/bus` | Local or Redis-backed event bus |
-| `@codexa/core/store` | Memory, Redis, or Deno KV key-value store |
-| `@codexa/core/cache` | Namespaced cache on top of store |
-| `@codexa/core/storage` | Local, S3, Cloudinary, and ImageKit storage manager |
-| `@codexa/core/logger` | Structured logger |
-| `@codexa/core/zod` | Zod re-export |
-| `@codexa/core/crypto` | IDs and password hashing |
-| `@codexa/core/hash` | SHA and HMAC helpers |
-| `@codexa/core/device` | User-agent parsing |
-| `@codexa/core/ttl` | TTL parsing helpers |
-| `@codexa/core/response` | Response payload builders |
-| `@codexa/core/query` | Query-string parser |
+| Import                  | Purpose                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| `@codexa/core/http`     | Plugin-first HTTP framework built on Deno and Rou3      |
+| `@codexa/core/openapi`  | OpenAPI 3.1 generator from HTTP `inspect()` metadata    |
+| `@codexa/core/config`   | Environment, MongoDB, Redis, and storage config helpers |
+| `@codexa/core/bus`      | Local or Redis-backed event bus                         |
+| `@codexa/core/store`    | Memory, Redis, or Deno KV key-value store               |
+| `@codexa/core/cache`    | Namespaced cache on top of store                        |
+| `@codexa/core/storage`  | Local, S3, Cloudinary, and ImageKit storage manager     |
+| `@codexa/core/logger`   | Structured logger                                       |
+| `@codexa/core/zod`      | Zod re-export                                           |
+| `@codexa/core/crypto`   | IDs and password hashing                                |
+| `@codexa/core/hash`     | SHA and HMAC helpers                                    |
+| `@codexa/core/device`   | User-agent parsing                                      |
+| `@codexa/core/ttl`      | TTL parsing helpers                                     |
+| `@codexa/core/response` | Response payload builders                               |
+| `@codexa/core/query`    | Query-string parser                                     |
 
 ## HTTP Quick Start
 
@@ -242,10 +245,11 @@ export const accountPlugin = definePlugin({
 		guarded.route({
 			method: 'GET',
 			path: '/account',
-			handler: (ctx) => ctx.json({
-				userId: ctx.state.authUserId,
-				role: ctx.state.authRole,
-			}),
+			handler: (ctx) =>
+				ctx.json({
+					userId: ctx.state.authUserId,
+					role: ctx.state.authRole,
+				}),
 			options: { name: 'account.show', tags: ['guarded:account'] },
 		});
 	},
@@ -254,13 +258,13 @@ export const accountPlugin = definePlugin({
 
 `appliedOn` patterns match route tags:
 
-| Pattern | Meaning |
-| --- | --- |
-| `*` | all routes in the same plugin |
-| `user:get` | exact tag |
-| `user*` | starts with `user` |
-| `*user` | ends with `user` |
-| `*user*` | contains `user` |
+| Pattern    | Meaning                       |
+| ---------- | ----------------------------- |
+| `*`        | all routes in the same plugin |
+| `user:get` | exact tag                     |
+| `user*`    | starts with `user`            |
+| `*user`    | ends with `user`              |
+| `*user*`   | contains `user`               |
 
 Middleware without `appliedOn` is registered but does not apply to routes by default.
 
@@ -484,11 +488,15 @@ app.enableByTags('beta');
 
 `inspect()` can query routes, plugins, tags, services, HTTP methods, and versions.
 
-## OpenAPI Metadata
+## OpenAPI
 
-Each route can carry OpenAPI metadata. Keep generation in a separate tool or service and use `app.inspect()` as the source.
+`@codexa/core/openapi` generates OpenAPI 3.1 documents from the public HTTP `inspect()` API. It does not instantiate the HTTP runtime class, and it works with plugin routes, mounted routers, disabled-route filtering, route tags, plugin names, and plugin-owned version headers.
+
+Add metadata on routes:
 
 ```ts
+import { zod } from '@codexa/core/zod';
+
 scope.route({
 	method: 'POST',
 	path: '/users',
@@ -499,6 +507,10 @@ scope.route({
 		openapi: {
 			summary: 'Create user',
 			tags: ['Users'],
+			body: zod.object({
+				email: zod.string().email(),
+				name: zod.string().min(2),
+			}),
 			bodyContentType: 'application/json',
 			responses: {
 				201: { description: 'User created' },
@@ -508,6 +520,105 @@ scope.route({
 	},
 });
 ```
+
+Generate a document from the app:
+
+```ts
+import { generateOpenApiDocument } from '@codexa/core/openapi';
+
+const document = generateOpenApiDocument(app, {
+	info: {
+		title: 'Codexa API',
+		version: '1.0.0',
+		description: 'Plugin-first API generated from route metadata',
+	},
+	servers: [{ url: 'https://api.example.com' }],
+	securitySchemes: {
+		bearer: {
+			type: 'http',
+			scheme: 'bearer',
+			bearerFormat: 'JWT',
+		},
+	},
+	security: [{ bearer: [] }],
+	versionedPathStrategy: 'suffix',
+});
+
+await Deno.writeTextFile(
+	'openapi.json',
+	JSON.stringify(document, null, 2),
+);
+```
+
+Serve the document from a plugin:
+
+```ts
+import {
+	generateOpenApiDocument,
+	serveOpenApiJson,
+} from '@codexa/core/openapi';
+import { definePlugin } from '@codexa/core/http';
+
+const docsPlugin = definePlugin({
+	name: 'docs',
+	setup(scope) {
+		serveOpenApiJson(
+			scope,
+			app,
+			{
+				info: { title: 'Codexa API', version: '1.0.0' },
+				servers: [{ url: 'http://localhost:8000' }],
+				versionedPathStrategy: 'suffix',
+			},
+			'/docs/openapi.json',
+		);
+
+		scope.route({
+			method: 'GET',
+			path: '/docs/openapi-summary',
+			handler: (ctx) => {
+				const doc = generateOpenApiDocument(app, {
+					info: { title: 'Codexa API', version: '1.0.0' },
+				});
+				return ctx.json({
+					paths: Object.keys(doc.paths).length,
+					tags: doc.tags?.map((tag) => tag.name) ?? [],
+				});
+			},
+			options: { name: 'docs.openapi.summary' },
+		});
+	},
+});
+```
+
+Versioned routes include the correct plugin-owned header automatically:
+
+```ts
+const catalogPlugin = definePlugin({
+	name: 'catalog',
+	versionHeader: 'X-Catalog-Version',
+	setup(scope) {
+		scope.version('2.0.0').route({
+			method: 'GET',
+			path: '/catalog/items/:id',
+			handler: (ctx) => ctx.json({ id: ctx.params.id }),
+			options: {
+				name: 'catalog.items.show.v2',
+				tags: ['catalog:item'],
+				openapi: {
+					summary: 'Get catalog item',
+					params: zod.object({ id: zod.string() }),
+					responses: {
+						200: { description: 'Catalog item returned' },
+					},
+				},
+			},
+		});
+	},
+});
+```
+
+With `versionedPathStrategy: 'suffix'`, this appears as `/catalog/items/{id};version=2.0.0` and includes a required `X-Catalog-Version: 2.0.0` header parameter. Import the generated JSON into Postman, Insomnia, Swagger UI, Scalar, or any OpenAPI 3.1-compatible tooling.
 
 ## Config And Env
 

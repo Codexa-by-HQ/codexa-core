@@ -37,6 +37,7 @@ export {
 	DEFAULT_VERSION_HEADER,
 	HTTP_METHODS,
 } from './_internals/constants.ts';
+/** Lifecycle phases reported by {@link ICodexaHttp.getPhase}. */
 export type LifeCyclePhase =
 	| 'idle'
 	| 'booting'
@@ -45,9 +46,12 @@ export type LifeCyclePhase =
 	| 'shutting_down'
 	| 'stopped';
 
+/** HTTP methods supported by Codexa route definitions. */
 export type HttpMethod = (typeof HTTP_METHODS)[number];
+/** Async or sync lifecycle hook callback. */
 export type Hook = () => void | Promise<void>;
 
+/** Options accepted by {@link ICodexaHttp.listen}. */
 export interface AppListenOptions {
 	port?: number;
 	hostname?: string;
@@ -58,9 +62,12 @@ export interface AppListenOptions {
 	key?: string;
 }
 
+/** Plain object shape accepted for typed request state and locals. */
 export type StateShape = Record<string, unknown>;
+/** Empty object type used as the default state/locals shape. */
 export type Empty = Record<never, never>;
 
+/** Built-in request state fields reserved by the framework. */
 export interface BaseState {
 	readonly requestId?: string;
 	readonly startTime?: number;
@@ -79,19 +86,19 @@ type NoReservedKeys<T> = Extract<keyof T, ReservedStateKey> extends never ? T
 	: never;
 
 /**
-* Creates a readonly copy of T by mapping over all of its properties.
-*
-* Example:
-*   type User = { name: string; age: number };
-*
-*   type Result = Simplify<User>;
-*
-* Result:
-*   {
-*     readonly name: string;
-*     readonly age: number;
-*   }
-*/
+ * Creates a readonly copy of T by mapping over all of its properties.
+ *
+ * Example:
+ *   type User = { name: string; age: number };
+ *
+ *   type Result = Simplify<User>;
+ *
+ * Result:
+ *   {
+ *     readonly name: string;
+ *     readonly age: number;
+ *   }
+ */
 type Simplify<T> = { readonly [K in keyof T]: T[K] };
 
 /**
@@ -108,24 +115,25 @@ type Simplify<T> = { readonly [K in keyof T]: T[K] };
  */
 type UnionToIntersection<T> =
 	(T extends unknown ? (value: T) => void : never) extends
-	(value: infer Result) => void ? Result
-	: never;
+		(value: infer Result) => void ? Result
+		: never;
 
 export type SafeState<T extends StateShape = Empty> = NoReservedKeys<T>;
 
+/** Complete request state visible on `ctx.state`. */
 export type RequestState<Ext extends StateShape = Empty> =
 	& Readonly<BaseState>
 	& Readonly<SafeState<Ext>>;
 
 /**
-* Removes route parameter modifiers from a parameter name.
-*
-* Examples:
-*   "id?"      -> "id"
-*   "id*"      -> "id"
-*   "id+"      -> "id"
-*   "id(\\d+)" -> "id"
-*/
+ * Removes route parameter modifiers from a parameter name.
+ *
+ * Examples:
+ *   "id?"      -> "id"
+ *   "id*"      -> "id"
+ *   "id+"      -> "id"
+ *   "id(\\d+)" -> "id"
+ */
 type StripModifiers<S extends string> = S extends `${infer N}?`
 	? StripModifiers<N>
 	: S extends `${infer N}+` ? StripModifiers<N>
@@ -134,41 +142,43 @@ type StripModifiers<S extends string> = S extends `${infer N}?`
 	: S;
 
 /**
-* Extracts route parameter names from a path string and maps them
-* to readonly string properties.
-*
-* Example:
-*   "/users/:userId/posts/:postId"
-*
-* becomes:
-*   {
-*     readonly userId: string;
-*     readonly postId: string;
-*   }
-*/
+ * Extracts route parameter names from a path string and maps them
+ * to readonly string properties.
+ *
+ * Example:
+ *   "/users/:userId/posts/:postId"
+ *
+ * becomes:
+ *   {
+ *     readonly userId: string;
+ *     readonly postId: string;
+ *   }
+ */
 export type ExtractRouteParams<Path extends string> = Path extends
 	`${string}:${infer Raw}/${infer Rest}` ? {
 		readonly [
-		K in StripModifiers<Raw> | keyof ExtractRouteParams<`/${Rest}`>
+			K in StripModifiers<Raw> | keyof ExtractRouteParams<`/${Rest}`>
 		]: string;
 	}
 	: Path extends `${string}:${infer Raw}`
-	? { readonly [K in StripModifiers<Raw>]: string }
+		? { readonly [K in StripModifiers<Raw>]: string }
 	: Empty;
 
 /**
-* Conditionally adds a provide() method.
-*
-* If TProvide is never, produces an empty object type.
-* Otherwise adds:
-*
-*   provide(data: TProvide): void
-*/
+ * Conditionally adds a provide() method.
+ *
+ * If TProvide is never, produces an empty object type.
+ * Otherwise adds:
+ *
+ *   provide(data: TProvide): void
+ */
 type WithProvide<TProvide> = [TProvide] extends [never] ? Empty
 	: { provide(data: TProvide): void };
 
+/** Runtime route parameter map. */
 export type RouteParams = Readonly<Record<string, string>>;
 
+/** Response helper methods available on `ctx` and the root app. */
 export interface ResponseHelpers {
 	json(data: unknown, init?: ResponseInit): Response;
 	text(data: string, init?: ResponseInit): Response;
@@ -179,6 +189,7 @@ export interface ResponseHelpers {
 	send(body?: BodyInit | null, init?: ResponseInit): Response;
 }
 
+/** Request context passed to middleware and route handlers. */
 export type Context<
 	StateExt extends StateShape = Empty,
 	Params extends Record<string, string> = RouteParams,
@@ -197,12 +208,14 @@ export type Context<
 	& ResponseHelpers
 	& WithProvide<TProvide>;
 
+/** OpenAPI response metadata attached to a route. */
 export interface OpenApiResponse {
 	description: string;
 	schema?: unknown;
 	headers?: StateShape;
 }
 
+/** OpenAPI operation metadata attached to route options. */
 export interface OpenApiConfig {
 	summary?: string;
 	description?: string;
@@ -221,8 +234,10 @@ export interface OpenApiConfig {
 
 type MiddlewareResult = void | Response | Promise<void | Response>;
 
+/** Query snapshot value used by request hooks. */
 export type QueryValue = string | readonly string[];
 
+/** Controlled response snapshot passed to request hooks. */
 export interface HookResponseSnapshot {
 	readonly status: number;
 	readonly statusText: string;
@@ -236,11 +251,13 @@ export interface HookResponseSnapshot {
 	readonly body: null;
 }
 
+/** Controlled error snapshot passed to error hooks. */
 export interface HookErrorSnapshot {
 	readonly name: string;
 	readonly message: string;
 }
 
+/** Controlled route snapshot passed to request hooks. */
 export interface HookRouteSnapshot {
 	readonly name: string;
 	readonly method: HttpMethod;
@@ -250,6 +267,7 @@ export interface HookRouteSnapshot {
 	readonly versionHeader?: string;
 }
 
+/** Controlled request hook event. Native bodies are intentionally not exposed. */
 export interface RequestHookEvent<StateExt extends StateShape = Empty> {
 	readonly params: RouteParams;
 	readonly query: Readonly<Record<string, QueryValue>>;
@@ -261,16 +279,19 @@ export interface RequestHookEvent<StateExt extends StateShape = Empty> {
 	readonly response: HookResponseSnapshot;
 }
 
+/** Hook called after a request completes successfully. */
 export type RequestSuccessHook<StateExt extends StateShape = Empty> = (
 	event: RequestHookEvent<StateExt>,
 ) => void | Promise<void>;
 
+/** Hook called after a request completes through the error path. */
 export type RequestErrorHook<StateExt extends StateShape = Empty> = (
 	event: RequestHookEvent<StateExt> & {
 		readonly error?: HookErrorSnapshot;
 	},
 ) => void | Promise<void>;
 
+/** Plugin middleware function signature. */
 export type AppMiddlewareFn<
 	StateExt extends StateShape = Empty,
 	TProvide = never,
@@ -283,16 +304,17 @@ interface MiddlewareBaseConfig {
 	priority?: number;
 }
 
+/** Inline middleware configuration returned by {@link defineMiddleware}. */
 export type MiddlewareConfig<
 	StateExt extends StateShape = Empty, // global plugin state
 	TProvide extends StateShape = never, // middleware injected from provide (route/global)
 	TExposed extends StateShape = [TProvide] extends [never] ? Empty
-	: TProvide, // what middleware options will expose T from "expose"
+		: TProvide, // what middleware options will expose T from "expose"
 	LocalsExt extends StateShape = Empty, // local state from plugin route.
 > = [TProvide] extends [never] ? MiddlewareBaseConfig & {
-	fn: AppMiddlewareFn<StateExt, never, LocalsExt>;
-	expose?: never;
-}
+		fn: AppMiddlewareFn<StateExt, never, LocalsExt>;
+		expose?: never;
+	}
 	: MiddlewareBaseConfig & {
 		fn: AppMiddlewareFn<StateExt, TProvide, LocalsExt>;
 		expose(data: TProvide): SafeState<TExposed>;
@@ -311,6 +333,7 @@ type MiddlewareInputCtxWithProvide<
 	provide(data: TProvide): void;
 };
 
+/** Input shape for middleware that does not call `ctx.provide`. */
 export type MiddlewareInputWithoutExpose<
 	StateExt extends StateShape = StateShape,
 	LocalsExt extends StateShape = StateShape,
@@ -319,6 +342,7 @@ export type MiddlewareInputWithoutExpose<
 	expose?: never;
 };
 
+/** Input shape for middleware that calls `ctx.provide`. */
 export type MiddlewareInputWithExpose<
 	TProvide extends StateShape,
 	TExposed extends StateShape = TProvide,
@@ -331,6 +355,7 @@ export type MiddlewareInputWithExpose<
 	expose(data: TProvide): SafeState<TExposed>;
 };
 
+/** Runtime-erased inline middleware shape used by route options. */
 export interface RouteMiddleware extends MiddlewareBaseConfig {
 	fn(ctx: never): MiddlewareResult;
 	expose?(data: never): StateShape;
@@ -341,10 +366,12 @@ type MiddlewareExposed<T> = T extends
 	? Exposed
 	: Empty;
 
+/** Locals inferred from a route's inline middleware array. */
 export type MiddlewareLocals<Middlewares extends readonly unknown[]> =
 	Middlewares extends readonly [] ? Empty
-	: Simplify<UnionToIntersection<MiddlewareExposed<Middlewares[number]>>>;
+		: Simplify<UnionToIntersection<MiddlewareExposed<Middlewares[number]>>>;
 
+/** Options shared by plugin middleware registration. */
 export interface UseOptions<
 	TExposed extends StateShape = Empty,
 	TProvide extends StateShape = TExposed,
@@ -357,12 +384,14 @@ export interface UseOptions<
 	expose?: (data: TProvide) => SafeState<TExposed>;
 }
 
+/** Plugin middleware options when no state is exposed. */
 export type UseOptionsWithoutExpose =
 	& Omit<UseOptions<Empty, never>, 'expose'>
 	& {
 		expose?: never;
 	};
 
+/** Plugin middleware options when provided data is exposed into state. */
 export type UseOptionsWithExpose<
 	TExposed extends StateShape,
 	TProvide extends StateShape,
@@ -370,19 +399,21 @@ export type UseOptionsWithExpose<
 	expose: (data: TProvide) => SafeState<TExposed>;
 };
 
+/** Plugin middleware configuration returned by {@link definePluginMiddleware}. */
 export type PluginMiddlewareConfig<
 	StateExt extends StateShape = Empty,
 	TProvide extends StateShape = never,
 	TExposed extends StateShape = [TProvide] extends [never] ? Empty
-	: TProvide,
+		: TProvide,
 	LocalsExt extends StateShape = Empty,
 > = [TProvide] extends [never] ? UseOptionsWithoutExpose & {
-	fn: AppMiddlewareFn<StateExt, never, LocalsExt>;
-}
+		fn: AppMiddlewareFn<StateExt, never, LocalsExt>;
+	}
 	: UseOptionsWithExpose<TExposed, TProvide> & {
 		fn: AppMiddlewareFn<StateExt, TProvide, LocalsExt>;
 	};
 
+/** Runtime-erased plugin middleware shape. */
 export interface PluginMiddleware {
 	tags?: readonly string[];
 	appliedOn?: readonly string[];
@@ -393,6 +424,7 @@ export interface PluginMiddleware {
 	expose?(data: never): StateShape;
 }
 
+/** Options accepted by a route definition. */
 export interface RouteOptions<
 	Middlewares extends readonly unknown[] = readonly RouteMiddleware[],
 > {
@@ -403,6 +435,7 @@ export interface RouteOptions<
 	openapi?: OpenApiConfig;
 }
 
+/** Route handler signature with params and locals inferred from the route. */
 export type RouteHandler<
 	Route extends string = string,
 	StateExt extends StateShape = Empty,
@@ -411,6 +444,7 @@ export type RouteHandler<
 	ctx: Context<StateExt, ExtractRouteParams<Route>, LocalsExt>,
 ) => Response | Promise<Response>;
 
+/** Declarative route definition accepted by route scopes. */
 export interface RouteDefinition<
 	Route extends string = string,
 	StateExt extends StateShape = Empty,
@@ -422,6 +456,7 @@ export interface RouteDefinition<
 	options?: RouteOptions<Middlewares>;
 }
 
+/** Minimal scope that can register routes. */
 export interface IRouteScope<StateExt extends StateShape = Empty> {
 	route<
 		const Route extends string,
@@ -429,25 +464,31 @@ export interface IRouteScope<StateExt extends StateShape = Empty> {
 	>(definition: RouteDefinition<Route, StateExt, Middlewares>): this;
 }
 
+/** Reusable router contract returned by {@link createRouter}. */
 export interface ICodexaHttpRouter<
 	StateExt extends StateShape = Empty,
 > extends IRouteScope<StateExt> {
 	getName(): string;
 }
 
+/** Module augmentation map for plugin config by plugin name. */
 // deno-lint-ignore no-empty-interface
-export interface IPluginConfigMap { }
+export interface IPluginConfigMap {}
 
+/** Module augmentation map for exposed plugin services by plugin name. */
 // deno-lint-ignore no-empty-interface
-export interface IPluginServiceMap { }
+export interface IPluginServiceMap {}
 
+/** Config type looked up from {@link IPluginConfigMap}. */
 export type PluginConfig<Name extends string> = Name extends
 	keyof IPluginConfigMap ? IPluginConfigMap[Name] : void;
 
+/** Service map looked up from {@link IPluginServiceMap}. */
 export type PluginServices<Name extends string> = Name extends
 	keyof IPluginServiceMap ? IPluginServiceMap[Name]
 	: Record<string, unknown>;
 
+/** Scope returned by `scope.version(v)` inside a plugin. */
 export interface IPluginVersionedScope<
 	StateExt extends StateShape = Empty,
 	PluginName extends string = string,
@@ -462,6 +503,7 @@ export interface IPluginVersionedScope<
 	): IPluginScope<SafeState<StateExt & RouterState>, PluginName, Deps>;
 }
 
+/** Controlled plugin setup scope. Plugins cannot listen or own app shutdown. */
 export interface IPluginScope<
 	StateExt extends StateShape = Empty,
 	PluginName extends string = string,
@@ -520,6 +562,7 @@ export interface IPluginScope<
 	hasService(pluginName: string, serviceName: string): boolean;
 }
 
+/** Optional package/author metadata attached to a plugin. */
 export interface IPluginMetaData {
 	license?: string;
 	description?: string;
@@ -528,6 +571,7 @@ export interface IPluginMetaData {
 	tags?: readonly string[];
 }
 
+/** Plugin definition accepted by {@link ICodexaHttp.install}. */
 export interface ICodexaPlugin<
 	Name extends string,
 	Config = PluginConfig<Name>,
@@ -543,6 +587,7 @@ export interface ICodexaPlugin<
 	): void;
 }
 
+/** Helper type accepted by {@link definePlugin}. */
 export type CodexaPluginDefinition<
 	Name extends string,
 	Config,
@@ -553,6 +598,7 @@ export type CodexaPluginDefinition<
 		dependsOn?: Deps;
 	};
 
+/** Query options for {@link ICodexaHttp.inspect}. */
 export interface InspectQuery {
 	tags?: readonly string[];
 	plugins?: readonly string[];
@@ -563,13 +609,16 @@ export interface InspectQuery {
 	includeDisabled?: boolean;
 }
 
+/** Public installed plugin summary. */
 export interface InstalledPluginInfo {
 	name: string;
 	metadata?: IPluginMetaData;
 }
 
+/** Middleware kind shown by inspection APIs. */
 export type MiddlewareKind = 'plugin' | 'inline';
 
+/** Middleware reference attached to an inspected route. */
 export interface InspectMiddlewareRef {
 	readonly name: string;
 	readonly kind: MiddlewareKind;
@@ -577,6 +626,7 @@ export interface InspectMiddlewareRef {
 	readonly pluginName?: string;
 }
 
+/** Route metadata returned by {@link ICodexaHttp.inspect}. */
 export interface InspectRoute {
 	readonly name: string;
 	readonly method: HttpMethod;
@@ -591,6 +641,7 @@ export interface InspectRoute {
 	readonly middlewares: readonly InspectMiddlewareRef[];
 }
 
+/** Middleware metadata returned by {@link ICodexaHttp.inspect}. */
 export interface InspectMiddleware {
 	readonly name: string;
 	readonly kind: MiddlewareKind;
@@ -601,12 +652,14 @@ export interface InspectMiddleware {
 	readonly pluginName?: string;
 }
 
+/** Service metadata returned by {@link ICodexaHttp.inspect}. */
 export interface InspectService {
 	readonly name: string;
 	readonly pluginName?: string;
 	readonly exists: boolean;
 }
 
+/** Plugin metadata returned by {@link ICodexaHttp.inspect}. */
 export interface InspectPlugin {
 	readonly name: string;
 	readonly metadata?: IPluginMetaData;
@@ -619,6 +672,7 @@ export interface InspectPlugin {
 	readonly routes: readonly InspectRoute[];
 }
 
+/** Aggregate counts returned by {@link ICodexaHttp.inspect}. */
 export interface InspectSummary {
 	readonly routeCount: number;
 	readonly enabledRouteCount: number;
@@ -628,6 +682,7 @@ export interface InspectSummary {
 	readonly middlewareCount: number;
 }
 
+/** Full inspection result for routes, plugins, services, and middleware. */
 export interface InspectResult {
 	readonly query?: InspectQuery;
 	readonly summary: InspectSummary;
@@ -637,6 +692,7 @@ export interface InspectResult {
 	readonly services: readonly InspectService[];
 }
 
+/** Root Codexa HTTP application contract. */
 export interface ICodexaHttp<
 	InstalledPlugins extends string = never,
 > extends ResponseHelpers {

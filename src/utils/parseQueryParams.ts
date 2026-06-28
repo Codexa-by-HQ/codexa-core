@@ -1,3 +1,16 @@
+/**
+ * @module @codexa/core/query
+ *
+ * Query-string parsing helper powered by `qs`.
+ *
+ * @example
+ * ```ts
+ * import { parseQueryParams } from '@codexa/core/query';
+ *
+ * const query = parseQueryParams('?page=1&filters[status]=active');
+ * ```
+ */
+
 import qs from 'qs';
 
 /**

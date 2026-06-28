@@ -1,6 +1,6 @@
 {
 	"name": "@codexa/core",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"license": "GPL-3.0-or-later",
 	"description": "Enterprise-grade modular toolkit for Deno - plugin-first HTTP, event bus, store, cache, type-safe env, MongoDB, Redis, storage, and more.",
 	"author": "Codexa-by-HQ",
@@ -34,6 +34,7 @@
 	"exports": {
 		".": "./mod.ts",
 		"./http": "./src/lib/http/mod.ts",
+		"./openapi": "./src/lib/openapi/mod.ts",
 		"./config": "./src/config/mod.ts",
 		"./bus": "./src/lib/bus/mod.ts",
 		"./store": "./src/lib/store/mod.ts",
@@ -68,7 +69,7 @@
 		"lint:fix": "deno lint --fix",
 		"format": "deno fmt --watch",
 		"format:check": "deno fmt --check",
-		"check": "deno check mod.ts src/lib/http/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts",
+		"check": "deno check mod.ts src/lib/http/mod.ts src/lib/openapi/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts",
 		"test": "deno test --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
 		"dry-run": "deno publish --dry-run --allow-dirty",
 		"publish": "deno publish"

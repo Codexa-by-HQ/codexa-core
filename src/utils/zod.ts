@@ -1,12 +1,30 @@
+/**
+ * @module @codexa/core/zod
+ *
+ * Re-export of Zod with small type aliases used across Codexa modules.
+ *
+ * @example
+ * ```ts
+ * import { zod, type ZodInfer } from '@codexa/core/zod';
+ *
+ * const User = zod.object({ id: zod.string() });
+ * type User = ZodInfer<typeof User>;
+ * ```
+ */
+
 import { z, ZodError } from '@zod/zod';
 
-// Re-export z as "zod" and ZodError it will preserves both value AND namespace which helps with type inference z.infer<>, z.ZodTypeAny, etc.
+/** Zod namespace re-exported as `zod` for consistent Codexa imports. */
 export { z as zod };
+/** Zod validation error class. */
 export { ZodError };
 
-// useful type helpers if above z.infer or other namespace not works
+/** Infer the parsed output type of a Zod schema. */
 export type ZodInfer<T extends z.ZodTypeAny> = z.infer<T>;
+/** Infer the accepted input type of a Zod schema. */
 export type ZodInput<T extends z.ZodTypeAny> = z.input<T>;
+/** Infer the parsed output type of a Zod schema. */
 export type ZodOutput<T extends z.ZodTypeAny> = z.output<T>;
+/** Any Zod object schema. */
 // deno-lint-ignore no-explicit-any
 export type AnyZodObject = z.ZodObject<any>;

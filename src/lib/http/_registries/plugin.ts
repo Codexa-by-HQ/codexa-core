@@ -40,6 +40,12 @@ import {
 } from '../_internals/helpers.ts';
 import { CodexaRouter } from './router.ts';
 
+/**
+ * Define inline route middleware.
+ *
+ * Inline middleware writes exposed data into `ctx.locals` for the current
+ * route pipeline only.
+ */
 export function defineMiddleware(
 	config: MiddlewareInputWithoutExpose<StateShape, StateShape>,
 ): MiddlewareConfig<StateShape, never, Empty, StateShape>;
@@ -73,6 +79,12 @@ export function defineMiddleware(
 	return config as RouteMiddleware;
 }
 
+/**
+ * Define plugin-scoped middleware.
+ *
+ * Plugin middleware is selected by `appliedOn` tag patterns and writes exposed
+ * data into the current plugin's `ctx.state`.
+ */
 export function definePluginMiddleware(
 	config: PluginMiddlewareConfig<Empty, never, Empty, Empty>,
 ): PluginMiddlewareConfig<Empty, never, Empty, Empty>;
@@ -93,6 +105,10 @@ export function definePluginMiddleware(
 	return config;
 }
 
+/**
+ * Define an installable Codexa HTTP plugin with typed config, dependencies,
+ * routes, middleware, hooks, and exposed services.
+ */
 export function definePlugin<
 	const Name extends string,
 	Config = PluginConfig<Name>,
@@ -103,6 +119,7 @@ export function definePlugin<
 	return plugin;
 }
 
+/** Alias for {@link definePlugin}. */
 export function plugin<
 	const Name extends string,
 	Config = PluginConfig<Name>,

@@ -699,6 +699,82 @@ Deno.test('http: inspect and tag controls update committed routes', async () => 
 	);
 	await app.shutdown();
 });
+
+Deno.test('openapi: generates docs from plugin inspect metadata', async () => {
+	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
+	const { zod } = await import('../src/utils/zod.ts');
+	const {
+		generateOpenApiDocument,
+		serveOpenApiJson,
+	} = await import('../src/lib/openapi/mod.ts');
+
+	const catalogPlugin = definePlugin({
+		name: 'catalog',
+		versionHeader: 'X-Catalog-Version',
+		setup(scope) {
+			scope.version('2.0.0').route({
+				method: 'GET',
+				path: '/catalog/items/:id',
+				handler: (ctx) =>
+					ctx.json({ id: ctx.params.id, version: '2.0.0' }),
+				options: {
+					name: 'catalog.items.show.v2',
+					tags: ['catalog:item'],
+					openapi: {
+						summary: 'Get catalog item',
+						tags: ['Catalog'],
+						params: zod.object({ id: zod.string() }),
+						responses: {
+							200: { description: 'Catalog item returned.' },
+						},
+					},
+				},
+			});
+		},
+	});
+
+	const app = createApp('OpenApiSmoke').install(catalogPlugin);
+	const docsPlugin = definePlugin({
+		name: 'docs',
+		setup(scope) {
+			serveOpenApiJson(
+				scope,
+				app,
+				{
+					info: { title: 'Smoke API', version: '1.0.0' },
+					versionedPathStrategy: 'suffix',
+				},
+				'/openapi.json',
+			);
+		},
+	});
+	app.install(docsPlugin);
+
+	const doc = generateOpenApiDocument(app, {
+		info: { title: 'Smoke API', version: '1.0.0' },
+		versionedPathStrategy: 'suffix',
+	});
+	const operation =
+		doc.paths['/catalog/items/{id};version=2.0.0']?.get;
+	assertExists(operation);
+	assertEquals(operation['x-codexa-plugin'], 'catalog');
+	assertEquals(operation['x-codexa-version-header'], 'X-Catalog-Version');
+	assertEquals(
+		operation.parameters?.some((parameter) =>
+			parameter.in === 'header' &&
+			parameter.name === 'X-Catalog-Version'
+		),
+		true,
+	);
+
+	const response = await app.dispatch(
+		new Request('http://local.test/openapi.json'),
+	);
+	assertEquals(response.status, 200);
+	const served = await response.json();
+	assertEquals(served.info.title, 'Smoke API');
+	await app.shutdown();
+});
 // EVENT BUS
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -957,7 +1033,8 @@ Deno.test('storage: createStorageManager export', async () => {
 
 Deno.test('root: mod.ts keeps root import lightweight', async () => {
 	const mod = await import('../mod.ts');
-	assertEquals(mod.CODEXA_CORE_VERSION, '0.0.5');
+	assertEquals(mod.CODEXA_CORE_VERSION, '0.0.6');
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('http'), true);
+	assertEquals(mod.CODEXA_CORE_MODULES.includes('openapi'), true);
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('store'), true);
 });

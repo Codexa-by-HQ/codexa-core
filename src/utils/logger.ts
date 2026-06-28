@@ -1,3 +1,18 @@
+/**
+ * @module @codexa/core/logger
+ *
+ * Structured console and optional file logger for Codexa applications.
+ *
+ * @example
+ * ```ts
+ * import { createLogger } from '@codexa/core/logger';
+ *
+ * const log = createLogger('Api');
+ * log.info('started', { port: 8000 });
+ * log.error('request failed', { requestId: 'r1' });
+ * ```
+ */
+
 import type {
 	LogEntry,
 	LogFileConfig,
@@ -45,6 +60,12 @@ const GLOBAL_FILE_CONFIG: LogFileConfig = {
 	maxFiles: parseInt(Deno.env.get('LOG_MAX_FILES') || '5'),
 };
 
+/**
+ * Create a logger scoped to a module name.
+ *
+ * The logger respects `LOG_LEVEL`, `ENV_TYPE`, and optional file logging
+ * environment variables. Use `logger.child(name)` for nested module names.
+ */
 export function createLogger(
 	module: string,
 	options?: { level?: LogLevelT; file?: Partial<LogFileConfig> },
@@ -278,7 +299,9 @@ function formatDevOutput(
 	output += msg;
 
 	if (dataStr) {
-		output += ` ${COLORS[level as keyof typeof COLORS]}${dataStr}${COLORS.reset}`;
+		output += ` ${
+			COLORS[level as keyof typeof COLORS]
+		}${dataStr}${COLORS.reset}`;
 	}
 
 	return output;

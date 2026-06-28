@@ -1,3 +1,20 @@
+/**
+ * @module @codexa/core/response
+ *
+ * Native Response payload builders and Codexa context send helpers.
+ *
+ * @example
+ * ```ts
+ * import { sendOk, sendNotFound } from '@codexa/core/response';
+ *
+ * scope.route({
+ *   method: 'GET',
+ *   path: '/users/:id',
+ *   handler: (ctx) => sendOk(ctx, { id: ctx.params.id }),
+ * });
+ * ```
+ */
+
 import type {
 	ApiResponse,
 	PaginatedResponse,
@@ -16,7 +33,7 @@ function buildMeta(meta?: ResponseMeta): ResponseMeta {
 	};
 }
 
-// JSON payload builders. These do not allocate a native Response.
+/** Build a standard success payload without allocating a native Response. */
 export function createSuccessResponse<T>(
 	data?: T,
 	message?: string,
@@ -31,6 +48,7 @@ export function createSuccessResponse<T>(
 	return response;
 }
 
+/** Build a standard error payload without allocating a native Response. */
 export function createErrorResponse(
 	error: string,
 	errors?: unknown,
@@ -45,6 +63,7 @@ export function createErrorResponse(
 	return response;
 }
 
+/** Build a paginated success payload without allocating a native Response. */
 export function createPaginatedResponse<T>(
 	data: T[],
 	pagination: PaginationMeta,
@@ -61,6 +80,7 @@ export function createPaginatedResponse<T>(
 	return response;
 }
 
+/** Calculate pagination metadata from page, limit, and total item count. */
 export function buildPaginationMeta(
 	page: number,
 	limit: number,
@@ -79,7 +99,7 @@ export function buildPaginationMeta(
 	};
 }
 
-// Native Response helpers for Codexa ctx or any compatible { json() } object.
+/** Send a success JSON Response through a Codexa context-compatible object. */
 export function sendSuccess<T>(
 	ctx: JsonResponseContext,
 	data?: T,
@@ -90,6 +110,7 @@ export function sendSuccess<T>(
 	return ctx.json(createSuccessResponse(data, message, meta), { status });
 }
 
+/** Send an error JSON Response through a Codexa context-compatible object. */
 export function sendError(
 	ctx: JsonResponseContext,
 	error: string,
@@ -100,6 +121,7 @@ export function sendError(
 	return ctx.json(createErrorResponse(error, errors, meta), { status });
 }
 
+/** Send a paginated JSON Response through a Codexa context-compatible object. */
 export function sendPaginated<T>(
 	ctx: JsonResponseContext,
 	data: T[],
@@ -110,6 +132,7 @@ export function sendPaginated<T>(
 	return ctx.json(createPaginatedResponse(data, pagination, message, meta));
 }
 
+/** Send a `200 OK` success response. */
 export function sendOk<T>(
 	ctx: JsonResponseContext,
 	data?: T,
@@ -119,6 +142,7 @@ export function sendOk<T>(
 	return sendSuccess(ctx, data, message, 200, meta);
 }
 
+/** Send a `201 Created` success response. */
 export function sendCreated<T>(
 	ctx: JsonResponseContext,
 	data?: T,
@@ -128,10 +152,12 @@ export function sendCreated<T>(
 	return sendSuccess(ctx, data, message ?? 'Created', 201, meta);
 }
 
+/** Send an empty `204 No Content` response. */
 export function sendNoContent(): Response {
 	return new Response(null, { status: 204 });
 }
 
+/** Send a `400 Bad Request` error response. */
 export function sendBadRequest(
 	ctx: JsonResponseContext,
 	error = 'Bad request',
@@ -141,6 +167,7 @@ export function sendBadRequest(
 	return sendError(ctx, error, 400, errors, meta);
 }
 
+/** Send a `401 Unauthorized` error response. */
 export function sendUnauthorized(
 	ctx: JsonResponseContext,
 	error = 'Unauthorized',
@@ -149,6 +176,7 @@ export function sendUnauthorized(
 	return sendError(ctx, error, 401, undefined, meta);
 }
 
+/** Send a `403 Forbidden` error response. */
 export function sendForbidden(
 	ctx: JsonResponseContext,
 	error = 'Forbidden',
@@ -157,6 +185,7 @@ export function sendForbidden(
 	return sendError(ctx, error, 403, undefined, meta);
 }
 
+/** Send a `404 Not Found` error response. */
 export function sendNotFound(
 	ctx: JsonResponseContext,
 	error = 'Not found',
@@ -165,6 +194,7 @@ export function sendNotFound(
 	return sendError(ctx, error, 404, undefined, meta);
 }
 
+/** Send a `409 Conflict` error response. */
 export function sendConflict(
 	ctx: JsonResponseContext,
 	error = 'Conflict',
@@ -173,6 +203,7 @@ export function sendConflict(
 	return sendError(ctx, error, 409, undefined, meta);
 }
 
+/** Send a `422 Unprocessable Entity` validation error response. */
 export function sendValidationError(
 	ctx: JsonResponseContext,
 	errors: unknown,
@@ -182,6 +213,7 @@ export function sendValidationError(
 	return sendError(ctx, error, 422, errors, meta);
 }
 
+/** Send a `500 Internal Server Error` response. */
 export function sendInternalError(
 	ctx: JsonResponseContext,
 	error = 'Internal server error',

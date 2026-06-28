@@ -7,8 +7,10 @@
  */
 
 // Logger
+/** Logger severity levels. */
 export type LogLevelT = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
+/** File logging configuration for the Codexa logger. */
 export interface LogFileConfig {
 	enabled: boolean;
 	dir: string;
@@ -16,6 +18,7 @@ export interface LogFileConfig {
 	maxFiles: number;
 }
 
+/** Structured logger interface returned by `createLogger`. */
 export interface Logger {
 	debug(msg: string, ...args: unknown[]): void;
 	info(msg: string, ...args: unknown[]): void;
@@ -25,6 +28,7 @@ export interface Logger {
 	child(subModule: string): Logger;
 }
 
+/** Serialized log entry shape used by file logging. */
 export interface LogEntry {
 	timestamp: string;
 	level: LogLevelT;
@@ -34,6 +38,7 @@ export interface LogEntry {
 }
 
 // Device / Platform / OS
+/** Broad device category. */
 export type DeviceType =
 	| 'desktop'
 	| 'mobile'
@@ -42,6 +47,7 @@ export type DeviceType =
 	| 'iot'
 	| 'cli'
 	| 'unknown';
+/** Runtime platform category. */
 export type DevicePlatform =
 	| 'web'
 	| 'ios'
@@ -50,6 +56,7 @@ export type DevicePlatform =
 	| 'windows'
 	| 'linux'
 	| 'api';
+/** Operating system category. */
 export type OS =
 	| 'windows'
 	| 'macos'
@@ -59,6 +66,7 @@ export type OS =
 	| 'chromeos'
 	| 'unknown';
 
+/** Parsed user-agent metadata. */
 export interface DeviceInfo {
 	browser: string;
 	os: string;
@@ -70,12 +78,16 @@ export interface DeviceInfo {
 }
 
 // Hash / Crypto
+/** Hash algorithms supported by Web Crypto helpers. */
 export type HashAlgorithm = 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
+/** HMAC hash algorithms supported by Web Crypto helpers. */
 export type HmacAlgorithm = 'SHA-1' | 'SHA-256' | 'SHA-384' | 'SHA-512';
 
 // Event Bus
+/** Event bus handler callback. */
 export type EventHandler<T = unknown> = (data: T) => void | Promise<void>;
 
+/** Internal event handler registry entry. */
 export interface HandlerEntry {
 	channel: string;
 	event: string;
@@ -84,10 +96,12 @@ export interface HandlerEntry {
 	isOnce: boolean;
 }
 
+/** Options accepted when registering handlers. */
 export type HandlerOptions = {
 	signal?: AbortSignal;
 };
 
+/** Public event bus contract. */
 export interface IEventBus {
 	initialize(opts: {
 		// deno-lint-ignore no-explicit-any
@@ -121,9 +135,12 @@ export interface IEventBus {
 }
 
 // Store
+/** Store backend mode. */
 export type StoreMode = 'redis' | 'kv' | 'memory';
+/** Store backend type. */
 export type StoreType = StoreMode;
 
+/** Options accepted by store `set`. */
 export interface StoreSetOptions {
 	/** TTL in seconds */
 	ttl?: number;
@@ -131,6 +148,7 @@ export interface StoreSetOptions {
 	ex?: number;
 }
 
+/** Store initialization configuration. */
 export interface StoreConfig {
 	mode?: StoreType;
 	fallbackToMemory?: boolean;
@@ -140,6 +158,7 @@ export interface StoreConfig {
 	kvPrefix?: string;
 }
 
+/** Unified key-value store contract. */
 export interface IStore {
 	set(
 		key: string,
@@ -160,6 +179,7 @@ export interface IStore {
 	quit(): Promise<string>;
 }
 
+/** Store runtime stats. */
 export interface StoreStats {
 	type: StoreType;
 	keyCount?: number;
@@ -168,9 +188,12 @@ export interface StoreStats {
 }
 
 // Storage
+/** Supported storage provider identifiers. */
 export type StorageProviderType = 's3' | 'cloudinary' | 'imagekit' | 'local';
+/** Stored asset category. */
 export type AssetType = 'image' | 'video' | 'document' | 'raw';
 
+/** Resolved storage configuration. */
 export interface StorageConfig {
 	provider: StorageProviderType;
 	s3?: {
@@ -200,6 +223,7 @@ export interface StorageConfig {
 }
 
 // Transformation
+/** Provider-neutral transformation options for storage URLs/uploads. */
 export interface TransformationOptions {
 	width?: number | `${number}%`;
 	height?: number | `${number}%`;
@@ -228,6 +252,7 @@ export interface TransformationOptions {
 		| Array<Record<string, unknown>>;
 }
 
+/** Upload metadata for server-side uploads. */
 export interface UploadOptions {
 	folder?: string;
 	fileName?: string;
@@ -245,6 +270,7 @@ export interface UploadOptions {
 	eagerTransformations?: TransformationOptions[];
 }
 
+/** Result returned after a successful upload. */
 export interface UploadResult {
 	key: string;
 	size: number;
@@ -265,6 +291,7 @@ export interface UploadResult {
 }
 
 // Signed / direct-upload (client-side)
+/** Options for generating client-side direct-upload credentials. */
 export interface SignedUploadOptions {
 	/** Target folder / prefix inside the bucket or cloud. */
 	folder?: string;
@@ -325,6 +352,7 @@ export interface SignedUploadResult {
 	publicUrl?: string;
 }
 
+/** Provider adapter contract used by `StorageManager`. */
 export interface StorageProvider {
 	upload(
 		file:
@@ -373,6 +401,7 @@ export interface StorageProvider {
 }
 
 // Native HTTP response payloads
+/** Standard metadata attached to response helper payloads. */
 export interface ResponseMeta {
 	timestamp: string;
 	path?: string;
@@ -380,6 +409,7 @@ export interface ResponseMeta {
 	[key: string]: unknown;
 }
 
+/** Standard API response envelope. */
 export interface ApiResponse<T = unknown> {
 	success: boolean;
 	message?: string;
@@ -389,6 +419,7 @@ export interface ApiResponse<T = unknown> {
 	meta?: ResponseMeta;
 }
 
+/** Pagination metadata for list responses. */
 export interface PaginationMeta {
 	page: number;
 	limit: number;
@@ -398,11 +429,13 @@ export interface PaginationMeta {
 	hasPrev: boolean;
 }
 
+/** Paginated response envelope. */
 export interface PaginatedResponse<T = unknown> extends ApiResponse<T[]> {
 	pagination: PaginationMeta;
 }
 
 // Native request/response metrics
+/** Request metrics snapshot for logging and telemetry. */
 export interface RequestMetrics {
 	timestamp: string;
 	duration: number;
