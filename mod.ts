@@ -17,7 +17,7 @@
  */
 
 /** Current package version published by this source tree. */
-export const CODEXA_CORE_VERSION = '0.0.6';
+export const CODEXA_CORE_VERSION = '0.0.7';
 
 /** Public subpath module names exported by `@codexa/core`. */
 export type CodexaCoreModule =
