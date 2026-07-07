@@ -13,6 +13,7 @@
  * import { createStorageManager } from '@codexa/core/storage';
  * import { env } from '@codexa/core/config';
  * import { createLogger } from '@codexa/core/logger';
+ * import { zod } from '@codexa/core/providers/zod';
  * ```
  */
 
@@ -28,6 +29,7 @@ export type CodexaCoreModule =
 	| 'store'
 	| 'cache'
 	| 'storage'
+	| 'providers'
 	| 'logger'
 	| 'zod'
 	| 'crypto'
@@ -46,6 +48,7 @@ export const CODEXA_CORE_MODULES: readonly CodexaCoreModule[] = Object.freeze([
 	'store',
 	'cache',
 	'storage',
+	'providers',
 	'logger',
 	'zod',
 	'crypto',

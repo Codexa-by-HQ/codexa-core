@@ -10,7 +10,7 @@
  * @example Typed environment (recommended)
  * ```ts
  * import { env } from '@codexa/core/config';
- * import { zod } from '@codexa/core/zod';
+ * import { zod } from '@codexa/core/providers/zod';
  *
  * const config = await env.loadEnv({
  *   paths: ['.env', '.env.local'],
@@ -32,8 +32,8 @@
  * ```
  */
 
-import { AnyZodObject, zod, ZodError, ZodInfer } from '../utils/zod.ts';
-import { load as envLoad } from '@std/dotenv';
+import { load as envLoad } from '../providers/dotenv.ts';
+import { AnyZodObject, zod, ZodError, ZodInfer } from '../providers/zod.ts';
 import { createLogger } from '../utils/logger.ts';
 
 const log = createLogger('Codexa:Env');

@@ -1,4 +1,4 @@
-import type { createRouter as rou3Create } from 'rou3';
+import type { createRouter as rou3Create } from '../../../providers/rou3.ts';
 import type {
 	AppMiddlewareFn,
 	Context,

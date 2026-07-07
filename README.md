@@ -21,7 +21,10 @@ For projects using JSR import maps:
 		"@codexa/core/bus": "jsr:@codexa/core/bus",
 		"@codexa/core/store": "jsr:@codexa/core/store",
 		"@codexa/core/cache": "jsr:@codexa/core/cache",
-		"@codexa/core/storage": "jsr:@codexa/core/storage"
+		"@codexa/core/storage": "jsr:@codexa/core/storage",
+		"@codexa/core/providers": "jsr:@codexa/core/providers",
+		"@codexa/core/providers/": "jsr:@codexa/core/providers/",
+		"@codexa/core/providers/zod": "jsr:@codexa/core/providers/zod"
 	}
 }
 ```
@@ -39,27 +42,61 @@ import { initializeStore, store } from '@codexa/core/store';
 import { createCache } from '@codexa/core/cache';
 import { createStorageManager } from '@codexa/core/storage';
 import { createLogger } from '@codexa/core/logger';
+import { zod } from '@codexa/core/providers/zod';
 ```
 
 Available public subpaths:
 
-| Import                  | Purpose                                                 |
-| ----------------------- | ------------------------------------------------------- |
-| `@codexa/core/http`     | Plugin-first HTTP framework built on Deno and Rou3      |
-| `@codexa/core/openapi`  | OpenAPI 3.1 generator from HTTP `inspect()` metadata    |
-| `@codexa/core/config`   | Environment, MongoDB, Redis, and storage config helpers |
-| `@codexa/core/bus`      | Local or Redis-backed event bus                         |
-| `@codexa/core/store`    | Memory, Redis, or Deno KV key-value store               |
-| `@codexa/core/cache`    | Namespaced cache on top of store                        |
-| `@codexa/core/storage`  | Local, S3, Cloudinary, and ImageKit storage manager     |
-| `@codexa/core/logger`   | Structured logger                                       |
-| `@codexa/core/zod`      | Zod re-export                                           |
-| `@codexa/core/crypto`   | IDs and password hashing                                |
-| `@codexa/core/hash`     | SHA and HMAC helpers                                    |
-| `@codexa/core/device`   | User-agent parsing                                      |
-| `@codexa/core/ttl`      | TTL parsing helpers                                     |
-| `@codexa/core/response` | Response payload builders                               |
-| `@codexa/core/query`    | Query-string parser                                     |
+| Import                   | Purpose                                                 |
+| ------------------------ | ------------------------------------------------------- |
+| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and Rou3      |
+| `@codexa/core/openapi`   | OpenAPI 3.1 generator from HTTP `inspect()` metadata    |
+| `@codexa/core/config`    | Environment, MongoDB, Redis, and storage config helpers |
+| `@codexa/core/bus`       | Local or Redis-backed event bus                         |
+| `@codexa/core/store`     | Memory, Redis, or Deno KV key-value store               |
+| `@codexa/core/cache`     | Namespaced cache on top of store                        |
+| `@codexa/core/storage`   | Local, S3, Cloudinary, and ImageKit storage manager     |
+| `@codexa/core/providers` | Third-party provider namespace exports                  |
+| `@codexa/core/logger`    | Structured logger                                       |
+| `@codexa/core/zod`       | Compatibility alias for the Zod provider                |
+| `@codexa/core/crypto`    | IDs and password hashing                                |
+| `@codexa/core/hash`      | SHA and HMAC helpers                                    |
+| `@codexa/core/device`    | User-agent parsing                                      |
+| `@codexa/core/ttl`       | TTL parsing helpers                                     |
+| `@codexa/core/response`  | Response payload builders                               |
+| `@codexa/core/query`     | Query-string parser                                     |
+
+## Provider Re-exports
+
+Codexa Core exposes the third-party packages it depends on through provider subpaths, so package consumers can import these providers from `@codexa/core` instead of installing or mapping each dependency again.
+
+```ts
+import { zod } from '@codexa/core/providers/zod';
+import { MongoClient } from '@codexa/core/providers/mongodb';
+import Redis from '@codexa/core/providers/ioredis';
+import qs from '@codexa/core/providers/qs';
+import { createRouter } from '@codexa/core/providers/rou3';
+import { UAParser } from '@codexa/core/providers/ua-parser-js';
+import { join } from '@codexa/core/providers/path';
+import { load } from '@codexa/core/providers/dotenv';
+import { blake2b, bytesToHex } from '@codexa/core/providers/noble-hashes';
+```
+
+Dedicated provider subpaths:
+
+| Import                                | Re-exports              |
+| ------------------------------------- | ----------------------- |
+| `@codexa/core/providers/path`         | `@std/path`             |
+| `@codexa/core/providers/zod`          | `@zod/zod`              |
+| `@codexa/core/providers/dotenv`       | `@std/dotenv`           |
+| `@codexa/core/providers/ioredis`      | `ioredis`               |
+| `@codexa/core/providers/mongodb`      | `mongodb`               |
+| `@codexa/core/providers/qs`           | `qs`                    |
+| `@codexa/core/providers/rou3`         | `rou3`                  |
+| `@codexa/core/providers/ua-parser-js` | `ua-parser-js`          |
+| `@codexa/core/providers/noble-hashes` | `@noble/hashes` modules |
+
+`@codexa/core/zod` remains available as a compatibility alias, but new code should prefer `@codexa/core/providers/zod`.
 
 ## HTTP Quick Start
 
@@ -495,7 +532,7 @@ app.enableByTags('beta');
 Add metadata on routes:
 
 ```ts
-import { zod } from '@codexa/core/zod';
+import { zod } from '@codexa/core/providers/zod';
 
 scope.route({
 	method: 'POST',
@@ -624,7 +661,7 @@ With `versionedPathStrategy: 'suffix'`, this appears as `/catalog/items/{id};ver
 
 ```ts
 import { Environment } from '@codexa/core/config';
-import { zod } from '@codexa/core/zod';
+import { zod } from '@codexa/core/providers/zod';
 
 const env = new Environment();
 await env.loadEnv({

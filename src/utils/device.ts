@@ -13,7 +13,7 @@
  * ```
  */
 
-import { UAParser } from 'ua-parser-js';
+import { UAParser } from '../providers/ua-parser-js.ts';
 import type { DeviceInfo } from '../types/app.d.ts';
 
 const parserInstance = new UAParser();

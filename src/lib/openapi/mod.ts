@@ -7,7 +7,7 @@
  * metadata. It does not import or instantiate the framework runtime class.
  */
 
-import { z } from '@zod/zod';
+import { z } from '../../providers/zod.ts';
 import type {
 	HttpMethod,
 	InspectQuery,

@@ -4,3 +4,5 @@ docs/*
 .env
 
 deno.lock*
+
+next_updates.md

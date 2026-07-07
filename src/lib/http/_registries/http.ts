@@ -3,7 +3,7 @@ import {
 	createRouter as rou3Create,
 	findRoute as rou3Find,
 	routeToRegExp as rou3ToRegExp,
-} from 'rou3';
+} from '../../../providers/rou3.ts';
 import { DEFAULT_VERSION_HEADER } from '../_internals/constants.ts';
 import type {
 	AppListenOptions,

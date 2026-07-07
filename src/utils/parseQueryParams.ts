@@ -11,7 +11,7 @@
  * ```
  */
 
-import qs from 'qs';
+import qs, { type IParseOptions, type ParsedQs } from '../providers/qs.ts';
 
 /**
  * Parse a query string into a structured object.
@@ -32,8 +32,8 @@ import qs from 'qs';
  */
 export function parseQueryParams(
 	query: string,
-	options?: qs.IParseOptions,
-): qs.ParsedQs {
+	options?: IParseOptions,
+): ParsedQs {
 	return qs.parse(query, {
 		ignoreQueryPrefix: true,
 		// depth: 3,

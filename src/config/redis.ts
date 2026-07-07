@@ -31,7 +31,7 @@
  * ```
  */
 
-import IoRedis from 'ioredis';
+import IoRedis from '../providers/ioredis.ts';
 import { createLogger } from '../utils/logger.ts';
 
 const log = createLogger('Codexa:Redis');

@@ -14,8 +14,7 @@
  * ```
  */
 
-import { blake2b } from '@noble/hashes/blake2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
+import { blake2b, bytesToHex } from '../providers/noble-hashes.ts';
 import { createLogger } from './logger.ts';
 
 const log = createLogger('Crypto', { level: 'error' });

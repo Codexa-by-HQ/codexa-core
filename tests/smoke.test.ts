@@ -16,7 +16,7 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 Deno.test('zod: exports zod namespace', async () => {
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	assertExists(zod);
 	assertExists(zod.string);
 	assertExists(zod.object);
@@ -24,7 +24,7 @@ Deno.test('zod: exports zod namespace', async () => {
 });
 
 Deno.test('zod: schema validation works', async () => {
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	const schema = zod.object({
 		name: zod.string().min(2),
 		age: zod.coerce.number().min(0),
@@ -38,7 +38,7 @@ Deno.test('zod: schema validation works', async () => {
 });
 
 Deno.test('zod: nested object schemas', async () => {
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	const addressSchema = zod.object({
 		street: zod.string(),
 		city: zod.string(),
@@ -266,7 +266,7 @@ Deno.test('config/env: loadEnv without schema (raw mode)', async () => {
 
 Deno.test('config/env: loadEnv with custom schema validates', async () => {
 	const { Environment } = await import('../src/config/env.ts');
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	const e = new Environment();
 
 	Deno.env.set('SMOKE_PORT', '3000');
@@ -290,7 +290,7 @@ Deno.test('config/env: loadEnv with custom schema validates', async () => {
 
 Deno.test('config/env: loadEnv with schema rejects invalid env', async () => {
 	const { Environment } = await import('../src/config/env.ts');
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	const e = new Environment();
 
 	// REQUIRED_VAR not set in Deno.env
@@ -333,7 +333,7 @@ Deno.test('config/env: utility helpers (enabled, number, list)', async () => {
 
 Deno.test('config/env: environment check helpers', async () => {
 	const { Environment } = await import('../src/config/env.ts');
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	const e = new Environment();
 
 	Deno.env.set('NODE_ENV', 'production');
@@ -702,7 +702,7 @@ Deno.test('http: inspect and tag controls update committed routes', async () => 
 
 Deno.test('openapi: generates docs from plugin inspect metadata', async () => {
 	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
-	const { zod } = await import('../src/utils/zod.ts');
+	const { zod } = await import('../src/providers/zod.ts');
 	const {
 		generateOpenApiDocument,
 		serveOpenApiJson,

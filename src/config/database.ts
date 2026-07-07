@@ -22,7 +22,11 @@
  * ```
  */
 
-import { type Db, MongoClient, type MongoClientOptions } from 'mongodb';
+import {
+	type Db,
+	MongoClient,
+	type MongoClientOptions,
+} from '../providers/mongodb.ts';
 import { createLogger } from '../utils/logger.ts';
 
 const log = createLogger('Codexa:MongoDB');

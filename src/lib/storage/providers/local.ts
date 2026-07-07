@@ -18,7 +18,7 @@
  * ```
  */
 
-import * as path from '@std/path';
+import * as path from '../../../providers/path.ts';
 import { createLogger } from '../../../utils/logger.ts';
 import { generateId } from '../../../utils/crypto.ts';
 import type {

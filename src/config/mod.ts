@@ -13,7 +13,7 @@
  * } from '@codexa/core/config';
  *
  * // Load env with custom schema
- * import { zod } from '@codexa/core/zod';
+ * import { zod } from '@codexa/core/providers/zod';
  * await env.loadEnv({
  *   paths: ['.env', '.env.local'],
  *   schema: zod.object({
