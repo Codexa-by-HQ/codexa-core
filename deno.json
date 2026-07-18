@@ -82,7 +82,7 @@
 		"format": "deno fmt --watch",
 		"format:check": "deno fmt --check",
 		"check": "deno check mod.ts src/providers/mod.ts src/providers/*.ts src/lib/http/mod.ts src/lib/openapi/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts",
-		"test": "deno test --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
+		"test": "deno test --unstable-kv --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
 		"dry-run": "deno publish --dry-run --allow-dirty",
 		"publish": "deno publish"
 	},

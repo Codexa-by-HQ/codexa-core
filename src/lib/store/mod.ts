@@ -3,10 +3,20 @@
  *
  * Unified key-value store for Codexa applications.
  *
- * Supports three backends: in-memory (default), Redis, and Deno KV.
- * The backend is chosen at `initializeStore()` time via `StoreConfig`.
+ * Supports three backends: in-memory (default), Redis, and Deno KV. Use
+ * `createStore()` for independent plugin-owned instances or
+ * `createStoreRegistry()` for named instances with centralized cleanup.
+ * `initializeStore()` and `store` remain the default-app compatibility API.
+ * 
+ * @example Independent plugin stores
+ * ```ts
+ * import { createStore } from '@codexa/core/store';
+ * const sessions = await createStore({ mode: 'redis', redisClient });
+ * const metadata = await createStore({ mode: 'kv', kvPath: './auth.db' });
+ * const temporary = await createStore({ mode: 'memory' });
+ * ```
  *
- * @example Memory (no config needed)
+ * @example Default application store (backward compatible)
  * ```ts
  * import { initializeStore, store } from '@codexa/core/store';
  * await initializeStore({ mode: 'memory' });
@@ -44,7 +54,7 @@ import type {
 
 const log = createLogger('Codexa:Store');
 
-// ── 1. Memory Store ───────────────────────────────────────────────────────────
+// 1. Memory Store
 
 interface MemoryEntry {
 	value: unknown;
@@ -194,11 +204,14 @@ class MemoryStore implements IStore {
 	}
 }
 
-// ── 2. Redis Store ────────────────────────────────────────────────────────────
+// 2. Redis Store
 
 class RedisStore implements IStore {
-	// deno-lint-ignore no-explicit-any
-	constructor(private readonly redis: any) {}
+	constructor(
+		// deno-lint-ignore no-explicit-any
+		private readonly redis: any,
+		private readonly closeClientOnClose: boolean,
+	) {}
 
 	async set(
 		key: string,
@@ -258,7 +271,17 @@ class RedisStore implements IStore {
 	}
 
 	async keys(pattern: string): Promise<string[]> {
-		return await this.redis.keys(pattern);
+		const connectionPrefix =
+			typeof this.redis.options?.keyPrefix === 'string'
+				? this.redis.options.keyPrefix
+				: '';
+		const keys = await this.redis.keys(`${connectionPrefix}${pattern}`);
+		if (!connectionPrefix) return keys;
+		return keys.map((key: string) =>
+			key.startsWith(connectionPrefix)
+				? key.slice(connectionPrefix.length)
+				: key
+		);
 	}
 
 	async flushdb(): Promise<string> {
@@ -266,6 +289,7 @@ class RedisStore implements IStore {
 	}
 
 	async quit(): Promise<string> {
+		if (!this.closeClientOnClose) return 'OK';
 		try {
 			return await this.redis.quit();
 		} catch {
@@ -274,7 +298,7 @@ class RedisStore implements IStore {
 	}
 }
 
-// ── 3. Deno KV Store ──────────────────────────────────────────────────────────
+// 3. Deno KV Store
 
 interface KvEntry {
 	value: unknown;
@@ -471,7 +495,78 @@ class DenoKvStore implements IStore {
 	}
 }
 
-// ── Shared utilities
+// Shared utilities
+/** Restrict a backend to one logical keyspace. */
+class PrefixedStore implements IStore {
+	constructor(
+		private readonly backend: IStore,
+		private readonly prefix: string,
+	) {}
+
+	private key(key: string): string {
+		return `${this.prefix}${key}`;
+	}
+
+	set(
+		key: string,
+		value: unknown,
+		options?: StoreSetOptions,
+	): Promise<string> {
+		return this.backend.set(this.key(key), value, options);
+	}
+
+	get<T = unknown>(key: string): Promise<T | null> {
+		return this.backend.get<T>(this.key(key));
+	}
+
+	del(...keys: string[]): Promise<number> {
+		return this.backend.del(...keys.map((key) => this.key(key)));
+	}
+
+	exists(...keys: string[]): Promise<number> {
+		return this.backend.exists(...keys.map((key) => this.key(key)));
+	}
+
+	expire(key: string, seconds: number): Promise<number> {
+		return this.backend.expire(this.key(key), seconds);
+	}
+
+	ttl(key: string): Promise<number> {
+		return this.backend.ttl(this.key(key));
+	}
+
+	incr(key: string): Promise<number> {
+		return this.backend.incr(this.key(key));
+	}
+
+	decr(key: string): Promise<number> {
+		return this.backend.decr(this.key(key));
+	}
+
+	incrby(key: string, amount: number): Promise<number> {
+		return this.backend.incrby(this.key(key), amount);
+	}
+
+	decrby(key: string, amount: number): Promise<number> {
+		return this.backend.decrby(this.key(key), amount);
+	}
+
+	async keys(pattern: string): Promise<string[]> {
+		const keys = await this.backend.keys(`${this.prefix}${pattern}`);
+		return keys.map((key) => key.slice(this.prefix.length));
+	}
+
+	async flushdb(): Promise<string> {
+		const keys = await this.backend.keys(`${this.prefix}*`);
+		if (keys.length > 0) await this.backend.del(...keys);
+		return 'OK';
+	}
+
+	quit(): Promise<string> {
+		return this.backend.quit();
+	}
+}
+
 function patternToRegex(pattern: string): RegExp {
 	// Escape every regex metacharacter EXCEPT the glob wildcards and brackets
 	// we intentionally support.
@@ -505,11 +600,376 @@ function patternToRegex(pattern: string): RegExp {
 	return new RegExp(`^${regexStr}$`);
 }
 
-// ── Store Registry & Lifecycle ────────────────────────────────────────────────
+// Store Registry & Lifecycle
 
-let _store: IStore | null = null;
-let _storeType: StoreType = 'memory';
-let _startedAt = 0;
+/** An independently configured store with helpers and lifecycle metadata. */
+export interface StoreInstance extends IStore {
+	readonly type: StoreType;
+	readonly startedAt: number;
+	getOrSet<T>(
+		key: string,
+		compute: () => Promise<T>,
+		options?: StoreSetOptions,
+	): Promise<T>;
+	delPattern(pattern: string): Promise<number>;
+	mset(
+		entries: Record<string, unknown>,
+		options?: StoreSetOptions,
+	): Promise<void>;
+	mget<T = unknown>(keys: string[]): Promise<Map<string, T | null>>;
+	stats(): Promise<StoreStats>;
+	close(): Promise<void>;
+}
+
+class ManagedStore implements StoreInstance {
+	readonly startedAt = Date.now();
+	#closed = false;
+
+	constructor(
+		readonly type: StoreType,
+		private readonly backend: IStore,
+	) {}
+
+	set(
+		key: string,
+		value: unknown,
+		options?: StoreSetOptions,
+	): Promise<string> {
+		this.assertOpen();
+		return this.backend.set(key, value, options);
+	}
+
+	get<T = unknown>(key: string): Promise<T | null> {
+		this.assertOpen();
+		return this.backend.get<T>(key);
+	}
+
+	del(...keys: string[]): Promise<number> {
+		this.assertOpen();
+		return this.backend.del(...keys);
+	}
+
+	exists(...keys: string[]): Promise<number> {
+		this.assertOpen();
+		return this.backend.exists(...keys);
+	}
+
+	expire(key: string, seconds: number): Promise<number> {
+		this.assertOpen();
+		return this.backend.expire(key, seconds);
+	}
+
+	ttl(key: string): Promise<number> {
+		this.assertOpen();
+		return this.backend.ttl(key);
+	}
+
+	incr(key: string): Promise<number> {
+		this.assertOpen();
+		return this.backend.incr(key);
+	}
+
+	decr(key: string): Promise<number> {
+		this.assertOpen();
+		return this.backend.decr(key);
+	}
+
+	incrby(key: string, amount: number): Promise<number> {
+		this.assertOpen();
+		return this.backend.incrby(key, amount);
+	}
+
+	decrby(key: string, amount: number): Promise<number> {
+		this.assertOpen();
+		return this.backend.decrby(key, amount);
+	}
+
+	keys(pattern: string): Promise<string[]> {
+		this.assertOpen();
+		return this.backend.keys(pattern);
+	}
+
+	flushdb(): Promise<string> {
+		this.assertOpen();
+		return this.backend.flushdb();
+	}
+
+	async quit(): Promise<string> {
+		if (this.#closed) return 'OK';
+		this.#closed = true;
+		return await this.backend.quit();
+	}
+
+	async getOrSet<T>(
+		key: string,
+		compute: () => Promise<T>,
+		options?: StoreSetOptions,
+	): Promise<T> {
+		const cached = await this.get<T>(key);
+		if (cached !== null) return cached;
+		const value = await compute();
+		await this.set(key, value, options);
+		return value;
+	}
+
+	async delPattern(pattern: string): Promise<number> {
+		const matched = await this.keys(pattern);
+		if (matched.length === 0) return 0;
+		return await this.del(...matched);
+	}
+
+	async mset(
+		entries: Record<string, unknown>,
+		options?: StoreSetOptions,
+	): Promise<void> {
+		await Promise.all(
+			Object.entries(entries).map(([key, value]) =>
+				this.set(key, value, options)
+			),
+		);
+	}
+
+	async mget<T = unknown>(
+		keys: string[],
+	): Promise<Map<string, T | null>> {
+		const results = await Promise.all(keys.map((key) => this.get<T>(key)));
+		return new Map(keys.map((key, index) => [key, results[index]]));
+	}
+
+	async stats(): Promise<StoreStats> {
+		this.assertOpen();
+		let keyCount: number | undefined;
+		try {
+			keyCount = (await this.keys('*')).length;
+		} catch {
+			// Some custom backends may not support wildcard key scans.
+		}
+		return {
+			type: this.type,
+			keyCount,
+			uptimeMs: Date.now() - this.startedAt,
+			backend: this.type,
+		};
+	}
+
+	async close(): Promise<void> {
+		await this.quit();
+	}
+
+	private assertOpen(): void {
+		if (this.#closed) {
+			throw new Error('Store instance is closed.');
+		}
+	}
+}
+
+/**
+ * Create a fully independent store instance.
+ *
+ * Each call can use a different mode and owns its memory/KV lifecycle. An
+ * injected Redis client remains caller-owned unless
+ * `closeRedisClientOnClose: true` is set. Pass the returned instance through
+ * plugin config instead of importing the default application store.
+ */
+export async function createStore(
+	cfg: StoreConfig = {},
+): Promise<StoreInstance> {
+	const mode = cfg.mode ?? 'memory';
+	const fallbackEnabled = cfg.fallbackToMemory !== false;
+	const keyPrefix = normalizeKeyPrefix(cfg.keyPrefix);
+
+	async function tryRedis(): Promise<IStore | null> {
+		if (!cfg.redisClient) {
+			log.warn('Store: mode=redis but no redisClient provided');
+			return null;
+		}
+		try {
+			await cfg.redisClient.ping();
+			log.info('Store: Redis backend connected');
+			return new RedisStore(
+				cfg.redisClient,
+				cfg.closeRedisClientOnClose ?? false,
+			);
+		} catch (error) {
+			log.warn('Store: Redis connection failed', error);
+			return null;
+		}
+	}
+
+	async function tryKv(): Promise<IStore | null> {
+		try {
+			const kv = await Deno.openKv(cfg.kvPath ?? undefined);
+			const prefix = cfg.kvPrefix ?? 'store';
+			log.info('Store: Deno KV backend opened', {
+				path: cfg.kvPath ?? 'default',
+				prefix,
+			});
+			return new DenoKvStore(kv, prefix);
+		} catch (error) {
+			log.warn('Store: Deno KV failed to open', error);
+			return null;
+		}
+	}
+
+	function makeMemory(): IStore {
+		log.info('Store: In-memory backend initialized');
+		return new MemoryStore();
+	}
+
+	let backend: IStore;
+	let resolvedType: StoreType;
+
+	switch (mode) {
+		case 'redis': {
+			const redisStore = await tryRedis();
+			if (redisStore) {
+				backend = redisStore;
+				resolvedType = 'redis';
+			} else if (fallbackEnabled) {
+				log.warn('Store: Falling back to in-memory');
+				backend = makeMemory();
+				resolvedType = 'memory';
+			} else {
+				throw new Error(
+					'Store: Redis backend failed and fallbackToMemory is disabled',
+				);
+			}
+			break;
+		}
+
+		case 'kv': {
+			const kvStore = await tryKv();
+			if (kvStore) {
+				backend = kvStore;
+				resolvedType = 'kv';
+			} else if (fallbackEnabled) {
+				log.warn('Store: Falling back to in-memory');
+				backend = makeMemory();
+				resolvedType = 'memory';
+			} else {
+				throw new Error(
+					'Store: Deno KV backend failed and fallbackToMemory is disabled',
+				);
+			}
+			break;
+		}
+
+		case 'memory':
+		default:
+			backend = makeMemory();
+			resolvedType = 'memory';
+			break;
+	}
+
+	if (keyPrefix) {
+		backend = new PrefixedStore(backend, keyPrefix);
+	}
+
+	log.info(`Store instance created: type=${resolvedType}`);
+	return new ManagedStore(resolvedType, backend);
+}
+
+function normalizeKeyPrefix(prefix: string | undefined): string | undefined {
+	if (prefix === undefined || prefix.length === 0) return undefined;
+	if (/[*?\[\]]/.test(prefix)) {
+		throw new Error(
+			'Store keyPrefix cannot contain glob characters: *, ?, [ or ].',
+		);
+	}
+	return prefix;
+}
+
+/**
+ * A registry that owns named store instances and gives each a key prefix.
+ * Injected Redis clients remain caller-owned unless explicitly configured.
+ */
+export interface StoreRegistry {
+	register(name: string, config?: StoreConfig): Promise<StoreInstance>;
+	get(name: string): StoreInstance;
+	has(name: string): boolean;
+	names(): readonly string[];
+	close(name: string): Promise<boolean>;
+	closeAll(): Promise<void>;
+}
+
+class StoreRegistryImpl implements StoreRegistry {
+	readonly #stores = new Map<string, StoreInstance>();
+	readonly #pending = new Set<string>();
+
+	async register(
+		name: string,
+		config: StoreConfig = {},
+	): Promise<StoreInstance> {
+		const normalizedName = normalizeStoreName(name);
+		if (
+			this.#stores.has(normalizedName) ||
+			this.#pending.has(normalizedName)
+		) {
+			throw new Error(`Store "${normalizedName}" is already registered.`);
+		}
+
+		this.#pending.add(normalizedName);
+		try {
+			const instance = await createStore({
+				...config,
+				keyPrefix: config.keyPrefix ?? `${normalizedName}:`,
+			});
+			this.#stores.set(normalizedName, instance);
+			return instance;
+		} finally {
+			this.#pending.delete(normalizedName);
+		}
+	}
+
+	get(name: string): StoreInstance {
+		const normalizedName = normalizeStoreName(name);
+		const instance = this.#stores.get(normalizedName);
+		if (!instance) {
+			throw new Error(`Store "${normalizedName}" is not registered.`);
+		}
+		return instance;
+	}
+
+	has(name: string): boolean {
+		return this.#stores.has(normalizeStoreName(name));
+	}
+
+	names(): readonly string[] {
+		return Object.freeze([...this.#stores.keys()]);
+	}
+
+	async close(name: string): Promise<boolean> {
+		const normalizedName = normalizeStoreName(name);
+		const instance = this.#stores.get(normalizedName);
+		if (!instance) return false;
+		this.#stores.delete(normalizedName);
+		await instance.close();
+		return true;
+	}
+
+	async closeAll(): Promise<void> {
+		const instances = [...this.#stores.values()];
+		this.#stores.clear();
+		await Promise.all(instances.map((instance) => instance.close()));
+	}
+}
+
+function normalizeStoreName(name: string): string {
+	const normalizedName = name.trim();
+	if (!normalizedName) {
+		throw new Error('Store name cannot be empty.');
+	}
+	return normalizedName;
+}
+
+/** Create a registry that owns all store instances registered in it. */
+export function createStoreRegistry(): StoreRegistry {
+	return new StoreRegistryImpl();
+}
+
+// Backward-compatible default application store.
+let _store: StoreInstance | null = null;
+let _storeInitialization: Promise<StoreInstance> | null = null;
 
 /**
  * Initialize the store.
@@ -526,146 +986,64 @@ let _startedAt = 0;
  * await initializeStore({ mode: 'kv', kvPath: './data.db' });
  * ```
  */
-export async function initializeStore(cfg: StoreConfig = {}): Promise<IStore> {
+export async function initializeStore(
+	cfg: StoreConfig = {},
+): Promise<StoreInstance> {
 	if (_store) return _store;
+	if (_storeInitialization) return await _storeInitialization;
 
-	const mode = cfg.mode ?? 'memory';
-	const fallbackEnabled = cfg.fallbackToMemory !== false;
-	_startedAt = Date.now();
-
-	async function tryRedis(): Promise<IStore | null> {
-		if (!cfg.redisClient) {
-			log.warn('Store: STORE_MODE=redis but no redisClient provided');
-			return null;
-		}
-		try {
-			// Probe the connection with a PING before committing to the backend
-			await cfg.redisClient.ping();
-			log.info('Store: Redis backend connected');
-			return new RedisStore(cfg.redisClient);
-		} catch (err) {
-			log.warn('Store: Redis connection failed', err);
-			return null;
-		}
+	_storeInitialization = createStore({
+		...cfg,
+		closeRedisClientOnClose: cfg.closeRedisClientOnClose ?? true,
+	}).then((instance) => {
+		_store = instance;
+		return instance;
+	});
+	try {
+		return await _storeInitialization;
+	} finally {
+		_storeInitialization = null;
 	}
-
-	async function tryKv(): Promise<IStore | null> {
-		try {
-			const kv = await Deno.openKv(cfg.kvPath ?? undefined);
-			const prefix = cfg.kvPrefix ?? 'store';
-			log.info('Store: Deno KV backend opened', {
-				path: cfg.kvPath ?? 'default',
-			});
-			return new DenoKvStore(kv, prefix);
-		} catch (err) {
-			log.warn('Store: Deno KV failed to open', err);
-			return null;
-		}
-	}
-
-	function makeMemory(): IStore {
-		log.info('Store: In-memory backend initialized');
-		return new MemoryStore();
-	}
-
-	switch (mode) {
-		case 'redis': {
-			const s = await tryRedis();
-			if (s) {
-				_store = s;
-				_storeType = 'redis';
-			} else if (fallbackEnabled) {
-				log.warn('Store: Falling back to in-memory');
-				_store = makeMemory();
-				_storeType = 'memory';
-			} else {
-				throw new Error(
-					'Store: Redis backend failed and fallbackToMemory is disabled',
-				);
-			}
-			break;
-		}
-
-		case 'kv': {
-			const s = await tryKv();
-			if (s) {
-				_store = s;
-				_storeType = 'kv';
-			} else if (fallbackEnabled) {
-				log.warn('Store: Falling back to in-memory');
-				_store = makeMemory();
-				_storeType = 'memory';
-			} else {
-				throw new Error(
-					'Store: Deno KV backend failed and fallbackToMemory is disabled',
-				);
-			}
-			break;
-		}
-
-		case 'memory':
-		default: {
-			_store = makeMemory();
-			_storeType = 'memory';
-			break;
-		}
-	}
-
-	log.info(`Store initialized: type=${_storeType}`);
-	return _store;
 }
 
-/** Get the active store. Throws if not initialized. */
-export function getStore(): IStore {
+/** Get the default application store. Throws if it is not initialized. */
+export function getStore(): StoreInstance {
 	if (!_store) {
 		throw new Error('Store not initialized. Call initializeStore() first.');
 	}
 	return _store;
 }
 
-/** Current store type: 'redis' | 'kv' | 'memory' */
+/** Current default store type. */
 export function getStoreType(): StoreType {
-	return _storeType;
+	return _store?.type ?? 'memory';
 }
 
-/** True if store has been initialized. */
+/** True if the default store has been initialized. */
 export function isStoreReady(): boolean {
 	return _store !== null;
 }
 
-/** Stats about the current store. */
-export async function getStoreStats(): Promise<StoreStats> {
-	const store = getStore();
-	let keyCount: number | undefined;
-	try {
-		const allKeys = await store.keys('*');
-		keyCount = allKeys.length;
-	} catch {
-		// Not all backends support wildcard keys efficiently
-	}
-	return {
-		type: _storeType,
-		keyCount,
-		uptimeMs: Date.now() - _startedAt,
-		backend: _storeType,
-	};
+/** Stats about the default application store. */
+export function getStoreStats(): Promise<StoreStats> {
+	return getStore().stats();
 }
 
-/** Close the store and release all resources. */
+/** Close the default store and release its resources. */
 export async function closeStore(): Promise<void> {
-	if (!_store) return;
-	try {
-		await _store.quit();
-	} catch (err) {
-		log.warn('Store: error during close', err);
-	}
+	const active = _store ??
+		(_storeInitialization ? await _storeInitialization : null);
+	if (!active) return;
 	_store = null;
-	_storeType = 'memory';
-	_startedAt = 0;
-	log.info('Store closed');
+	try {
+		await active.close();
+	} catch (error) {
+		log.warn('Store: error during close', error);
+	}
+	log.info('Default store closed');
 }
 
-// ── Convenience wrapper ───────────────────────────────────────────────────────
+// Convenience wrapper
 
 /** Use these helpers instead of calling `getStore()` directly. */
 export const store: {
@@ -759,3 +1137,11 @@ export const store: {
 		return new Map(keys.map((k, i) => [k, results[i] as T | null]));
 	},
 };
+
+export type {
+	IStore,
+	StoreConfig,
+	StoreSetOptions,
+	StoreStats,
+	StoreType,
+} from '../../types/app.d.ts';

@@ -5,7 +5,8 @@
  *
  * Pass a {@link StorageConfig} (built via {@link buildStorageConfig} from
  * `@codexa/core/config`) to {@link createStorageManager}. The correct adapter
- * is resolved automatically - no manual provider wiring needed.
+ * is resolved automatically - no manual provider wiring needed. Every manager
+ * is independent; use {@link createStorageRegistry} when named lookup is useful.
  *
  * ### Supported providers
  * | `STORAGE_PROVIDER` | Status |
@@ -458,6 +459,83 @@ export function createStorageManager(
 ): StorageManager {
 	const provider = adapter ?? resolveStorageAdapter(config);
 	return new StorageManager(config, provider);
+}
+
+/** A named collection of independently configured storage managers. */
+export interface StorageRegistry {
+	register(
+		name: string,
+		config: StorageConfig,
+		adapter?: StorageProvider,
+	): StorageManager;
+	get(name: string): StorageManager;
+	has(name: string): boolean;
+	names(): readonly string[];
+	remove(name: string): StorageManager | undefined;
+	clear(): void;
+}
+
+class StorageRegistryImpl implements StorageRegistry {
+	readonly #managers = new Map<string, StorageManager>();
+
+	register(
+		name: string,
+		config: StorageConfig,
+		adapter?: StorageProvider,
+	): StorageManager {
+		const normalizedName = normalizeStorageName(name);
+		if (this.#managers.has(normalizedName)) {
+			throw new Error(
+				`Storage manager "${normalizedName}" is already registered.`,
+			);
+		}
+		const manager = createStorageManager(config, adapter);
+		this.#managers.set(normalizedName, manager);
+		return manager;
+	}
+
+	get(name: string): StorageManager {
+		const normalizedName = normalizeStorageName(name);
+		const manager = this.#managers.get(normalizedName);
+		if (!manager) {
+			throw new Error(
+				`Storage manager "${normalizedName}" is not registered.`,
+			);
+		}
+		return manager;
+	}
+
+	has(name: string): boolean {
+		return this.#managers.has(normalizeStorageName(name));
+	}
+
+	names(): readonly string[] {
+		return Object.freeze([...this.#managers.keys()]);
+	}
+
+	remove(name: string): StorageManager | undefined {
+		const normalizedName = normalizeStorageName(name);
+		const manager = this.#managers.get(normalizedName);
+		this.#managers.delete(normalizedName);
+		return manager;
+	}
+
+	clear(): void {
+		this.#managers.clear();
+	}
+}
+
+function normalizeStorageName(name: string): string {
+	const normalizedName = name.trim();
+	if (!normalizedName) {
+		throw new Error('Storage manager name cannot be empty.');
+	}
+	return normalizedName;
+}
+
+/** Create a registry for named storage manager instances. */
+export function createStorageRegistry(): StorageRegistry {
+	return new StorageRegistryImpl();
 }
 
 // Provider class re-exports

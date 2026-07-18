@@ -9,10 +9,11 @@
  *
  * @example Local-only (no Redis needed)
  * ```ts
- * import { eventBus } from '@codexa/core/bus';
- * await eventBus.initialize({});
- * eventBus.on('orders', 'created', (data) => console.log(data));
- * eventBus.emit('orders', 'created', { id: '123' });
+ * import { createEventBus } from '@codexa/core/bus';
+ * const ordersBus = createEventBus();
+ * await ordersBus.initialize();
+ * ordersBus.on('orders', 'created', (data) => console.log(data));
+ * ordersBus.emit('orders', 'created', { id: '123' });
  * ```
  *
  * @example Distributed (with Redis)
@@ -33,6 +34,7 @@
 import { createLogger } from '../../utils/logger.ts';
 import { generateId } from '../../utils/crypto.ts';
 import type {
+	EventBusConfig,
 	EventHandler,
 	HandlerEntry,
 	HandlerOptions,
@@ -45,8 +47,6 @@ const log = createLogger('Codexa:EventBus');
 type AnyRedisClient = any;
 
 class EventBus implements IEventBus {
-	private static instance: EventBus;
-
 	private newHandler = new Map<string, Set<HandlerEntry>>();
 	private emitter = new EventTarget();
 
@@ -61,13 +61,6 @@ class EventBus implements IEventBus {
 		return `${channel}:${event}`;
 	}
 
-	public static getInstance(): EventBus {
-		if (!EventBus.instance) {
-			EventBus.instance = new EventBus();
-		}
-		return EventBus.instance;
-	}
-
 	/**
 	 * Initialize the event bus.
 	 *
@@ -79,13 +72,7 @@ class EventBus implements IEventBus {
 	 *                                (requires `redisClient`).
 	 */
 	async initialize(
-		{
-			redisClient,
-			subscribeChannels,
-		}: {
-			redisClient?: AnyRedisClient;
-			subscribeChannels?: string[];
-		},
+		{ redisClient, subscribeChannels }: EventBusConfig = {},
 	): Promise<void> {
 		if (this.initialized) {
 			log.warn('EventBus.initialize() called more than once - skipping');
@@ -298,11 +285,17 @@ class EventBus implements IEventBus {
 		if (!set) return;
 
 		await Promise.all(
-			[...set].map((entry) =>
-				Promise.resolve(entry.originalHandler(data)).catch((err) => {
-					log.error(`Async event handler error: ${fullKey}`, err);
-				})
-			),
+			[...set].map(async (entry) => {
+				try {
+					await entry.originalHandler(data);
+				} catch (error) {
+					log.error(`Async event handler error: ${fullKey}`, error);
+				} finally {
+					if (entry.isOnce) {
+						this.off(channel, event, entry.originalHandler);
+					}
+				}
+			}),
 		);
 	}
 
@@ -402,4 +395,107 @@ class EventBus implements IEventBus {
 	}
 }
 
-export const eventBus: IEventBus = EventBus.getInstance();
+/** Create an independent event bus instance. */
+export function createEventBus(): IEventBus {
+	return new EventBus();
+}
+
+/** A named collection of independently configured event buses. */
+export interface EventBusRegistry {
+	register(name: string, config?: EventBusConfig): Promise<IEventBus>;
+	get(name: string): IEventBus;
+	has(name: string): boolean;
+	names(): readonly string[];
+	destroy(name: string): Promise<boolean>;
+	destroyAll(): Promise<void>;
+}
+
+class EventBusRegistryImpl implements EventBusRegistry {
+	readonly #buses = new Map<string, IEventBus>();
+	readonly #pending = new Set<string>();
+
+	async register(
+		name: string,
+		config: EventBusConfig = {},
+	): Promise<IEventBus> {
+		const normalizedName = normalizeBusName(name);
+		if (
+			this.#buses.has(normalizedName) || this.#pending.has(normalizedName)
+		) {
+			throw new Error(
+				`Event bus "${normalizedName}" is already registered.`,
+			);
+		}
+
+		this.#pending.add(normalizedName);
+		const bus = createEventBus();
+		try {
+			await bus.initialize(config);
+			this.#buses.set(normalizedName, bus);
+			return bus;
+		} catch (error) {
+			await bus.destroy();
+			throw error;
+		} finally {
+			this.#pending.delete(normalizedName);
+		}
+	}
+
+	get(name: string): IEventBus {
+		const normalizedName = normalizeBusName(name);
+		const bus = this.#buses.get(normalizedName);
+		if (!bus) {
+			throw new Error(`Event bus "${normalizedName}" is not registered.`);
+		}
+		return bus;
+	}
+
+	has(name: string): boolean {
+		return this.#buses.has(normalizeBusName(name));
+	}
+
+	names(): readonly string[] {
+		return Object.freeze([...this.#buses.keys()]);
+	}
+
+	async destroy(name: string): Promise<boolean> {
+		const normalizedName = normalizeBusName(name);
+		const bus = this.#buses.get(normalizedName);
+		if (!bus) return false;
+		this.#buses.delete(normalizedName);
+		await bus.destroy();
+		return true;
+	}
+
+	async destroyAll(): Promise<void> {
+		const buses = [...this.#buses.values()];
+		this.#buses.clear();
+		await Promise.all(buses.map((bus) => bus.destroy()));
+	}
+}
+
+function normalizeBusName(name: string): string {
+	const normalizedName = name.trim();
+	if (!normalizedName) {
+		throw new Error('Event bus name cannot be empty.');
+	}
+	return normalizedName;
+}
+
+/** Create a registry that owns the lifecycle of its named bus instances. */
+export function createEventBusRegistry(): EventBusRegistry {
+	return new EventBusRegistryImpl();
+}
+
+/**
+ * Backward-compatible default application bus.
+ * Prefer {@link createEventBus} for plugin-owned or isolated buses.
+ */
+export const eventBus: IEventBus = createEventBus();
+
+export type {
+	EventBusConfig,
+	EventHandler,
+	HandlerOptions,
+	IEventBus,
+} from '../../types/app.d.ts';

@@ -37,10 +37,10 @@ Use subpath imports. The root module is intentionally lightweight and does not i
 import { createApp } from '@codexa/core/http';
 import { generateOpenApiDocument } from '@codexa/core/openapi';
 import { env } from '@codexa/core/config';
-import { eventBus } from '@codexa/core/bus';
-import { initializeStore, store } from '@codexa/core/store';
+import { createEventBus } from '@codexa/core/bus';
+import { createStore, createStoreRegistry } from '@codexa/core/store';
 import { createCache } from '@codexa/core/cache';
-import { createStorageManager } from '@codexa/core/storage';
+import { createStorageManager, createStorageRegistry } from '@codexa/core/storage';
 import { createLogger } from '@codexa/core/logger';
 import { zod } from '@codexa/core/providers/zod';
 ```
@@ -692,61 +692,105 @@ File logging is controlled by logger configuration and environment variables. Se
 Local mode:
 
 ```ts
-import { eventBus } from '@codexa/core/bus';
+import { createEventBus } from '@codexa/core/bus';
 
-await eventBus.initialize({});
+const ordersBus = createEventBus();
+await ordersBus.initialize();
 
-eventBus.on<{ id: string }>('orders', 'created', (order) => {
+ordersBus.on<{ id: string }>('orders', 'created', (order) => {
 	console.log(order.id);
 });
 
-eventBus.emit('orders', 'created', { id: 'o1' });
+ordersBus.emit('orders', 'created', { id: 'o1' });
 ```
 
 Redis distributed mode:
 
 ```ts
 import { createRedisConnection } from '@codexa/core/config';
-import { eventBus } from '@codexa/core/bus';
+import { createEventBus } from '@codexa/core/bus';
 
 const redis = createRedisConnection({ url: Deno.env.get('REDIS_URL') });
 await redis.connect();
 
-await eventBus.initialize({
+const distributedBus = createEventBus();
+await distributedBus.initialize({
 	redisClient: redis.getClient(),
 	subscribeChannels: ['orders'],
 });
 ```
 
+For multiple named buses with centralized cleanup:
+
+```ts
+import { createEventBusRegistry } from '@codexa/core/bus';
+
+const buses = createEventBusRegistry();
+const authEvents = await buses.register('auth');
+const billingEvents = await buses.register('billing', {
+	redisClient: redis.getClient(),
+	subscribeChannels: ['billing'],
+});
+
+await buses.destroyAll();
+```
+
+`eventBus` remains available as the default application bus for backward compatibility.
+
 ## Store
 
-Memory:
+Independent stores (recommended for plugins):
+
+```ts
+import { createStore } from '@codexa/core/store';
+
+const authStore = await createStore({
+	mode: 'redis',
+	redisClient: redis.getClient(),
+	keyPrefix: 'auth:',
+});
+const walletStore = await createStore({
+	mode: 'kv',
+	kvPath: './data/wallet.db',
+	kvPrefix: 'wallet',
+});
+const temporaryStore = await createStore({ mode: 'memory' });
+
+await authStore.set('session:u1', { userId: 'u1' }, { ttl: 900 });
+await Promise.all([
+	authStore.close(),
+	walletStore.close(),
+	temporaryStore.close(),
+]);
+```
+
+Named stores with centralized lifecycle management:
+
+```ts
+import { createStoreRegistry } from '@codexa/core/store';
+
+const stores = createStoreRegistry();
+const sessions = await stores.register('auth:sessions', {
+	mode: 'redis', redisClient: redis.getClient(),
+});
+const authMetadata = await stores.register('auth:metadata', {
+	mode: 'kv', kvPath: './data/auth.db', kvPrefix: 'auth',
+});
+
+await stores.closeAll();
+```
+
+Named registry stores automatically receive a `<name>:` key prefix unless `keyPrefix` is provided. This makes two logical stores safe on the same Redis database and scopes `flushdb()` to that store's keys. Direct `createStore()` calls can opt into the same protection with `keyPrefix`.
+
+Injected Redis clients are caller-owned by default, so closing one plugin store does not disconnect other users of the client. Set `closeRedisClientOnClose: true` only when the store owns a dedicated client. The legacy `initializeStore()` API keeps its previous behavior and owns its Redis client unless explicitly configured otherwise.
+
+The original singleton API remains the default application-store shorthand:
 
 ```ts
 import { initializeStore, store } from '@codexa/core/store';
 
 await initializeStore({ mode: 'memory' });
-await store.set('session:u1', { userId: 'u1' }, { ttl: 900 });
-const session = await store.get<{ userId: string }>('session:u1');
-```
-
-Redis:
-
-```ts
-await initializeStore({
-	mode: 'redis',
-	redisClient: redis.getClient(),
-});
-```
-
-Deno KV:
-
-```ts
-await initializeStore({
-	mode: 'kv',
-	kvPath: './data/kv.db',
-	kvPrefix: 'codexa',
-});
+await store.set('key', 'value');
 ```
 
 Local Deno KV requires the unstable flag:
@@ -759,8 +803,16 @@ deno run --unstable-kv --allow-read --allow-write main.ts
 
 ```ts
 import { createCache } from '@codexa/core/cache';
+import { createStore } from '@codexa/core/store';
 
-const usersCache = createCache('users', { defaultTtl: 300 });
+const routeStore = await createStore({
+	mode: 'redis',
+	redisClient: redis.getClient(),
+});
+const usersCache = createCache('users', {
+	defaultTtl: 300,
+	store: routeStore,
+});
 
 const user = await usersCache.getOrSet(
 	'u1',
@@ -770,6 +822,8 @@ const user = await usersCache.getOrSet(
 
 await usersCache.invalidateTag('user:u1');
 ```
+
+Every cache captures its configured store instance. Different routers can use the same namespace with different stores without sharing data. Omitting `store` keeps the legacy default-store behavior.
 
 ## Storage
 
@@ -792,6 +846,21 @@ const uploaded = await storage.upload(new Uint8Array([1, 2, 3]), {
 });
 ```
 
+Create as many storage managers as needed, or keep named managers in a registry:
+
+```ts
+import { createStorageRegistry } from '@codexa/core/storage';
+
+const storages = createStorageRegistry();
+const mediaStorage = storages.register('media', cloudinaryConfig);
+const invoiceStorage = storages.register('invoices', s3Config);
+
+await mediaStorage.upload(imageBytes, { folder: 'products' });
+await invoiceStorage.upload(pdfBytes, { folder: 'invoices' });
+```
+
+Storage managers do not currently own long-lived connections, so `remove()` and `clear()` only remove registry references. A custom adapter with its own connection should expose and manage that connection in the plugin or app lifecycle that created it.
+
 Direct client upload token:
 
 ```ts
@@ -800,6 +869,71 @@ const token = await storage.getSignedUploadUrl({
 	contentType: 'video/mp4',
 	assetType: 'video',
 	expiresIn: 1800,
+});
+```
+
+## Plugin Resource Composition
+
+HTTP plugins receive resources through their install config. The app (or the registry it creates) owns shared-resource cleanup; a plugin should only close an instance when it created that instance itself.
+
+```ts
+import { createApp, definePlugin } from '@codexa/core/http';
+import { createCache, type CacheNamespace } from '@codexa/core/cache';
+import { createRedisConnection } from '@codexa/core/config';
+import {
+	createStoreRegistry,
+	type StoreInstance,
+} from '@codexa/core/store';
+import {
+	createEventBusRegistry,
+	type IEventBus,
+} from '@codexa/core/bus';
+
+interface AuthResources {
+	sessions: StoreInstance;
+	metadata: StoreInstance;
+	pageCache: CacheNamespace;
+	events: IEventBus;
+}
+
+const authPlugin = definePlugin<'auth', AuthResources>({
+	name: 'auth',
+	setup(scope, resources) {
+		scope.route({
+			method: 'GET',
+			path: '/session/:id',
+			handler: async (ctx) => {
+				const session = await resources.sessions.get(ctx.params.id);
+				return ctx.json({ session });
+			},
+		});
+	},
+});
+
+const redis = createRedisConnection({ url: Deno.env.get('REDIS_URL') });
+await redis.connect();
+const stores = createStoreRegistry();
+const buses = createEventBusRegistry();
+const sessions = await stores.register('auth:sessions', {
+	mode: 'redis',
+	redisClient: redis.getClient(),
+});
+const metadata = await stores.register('auth:metadata', {
+	mode: 'kv',
+	kvPath: './data/auth.db',
+});
+const events = await buses.register('auth');
+
+const app = createApp().install(authPlugin, {
+	sessions,
+	metadata,
+	pageCache: createCache('auth-pages', { store: metadata }),
+	events,
+});
+
+app.onShutdown(async () => {
+	await Promise.all([stores.closeAll(), buses.destroyAll()]);
+	await redis.disconnect();
 });
 ```
 

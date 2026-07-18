@@ -846,6 +846,66 @@ Deno.test('bus: listActiveEvents', async () => {
 	await eventBus.destroy();
 });
 
+Deno.test('bus: once fires only once with emitAsync', async () => {
+	const { createEventBus } = await import('../src/lib/bus/mod.ts');
+	const bus = createEventBus();
+	await bus.initialize();
+	let count = 0;
+	bus.once('test', 'async-once', async () => {
+		await Promise.resolve();
+		count++;
+	});
+
+	await bus.emitAsync('test', 'async-once', {});
+	await bus.emitAsync('test', 'async-once', {});
+	assertEquals(count, 1);
+	assertEquals(bus.hasListeners('test', 'async-once'), false);
+	await bus.destroy();
+});
+
+Deno.test('bus: factory instances are isolated', async () => {
+	const { createEventBus } = await import('../src/lib/bus/mod.ts');
+	const authBus = createEventBus();
+	const billingBus = createEventBus();
+	await Promise.all([authBus.initialize(), billingBus.initialize()]);
+
+	let authCount = 0;
+	let billingCount = 0;
+	authBus.on('account', 'updated', () => {
+		authCount++;
+	});
+	billingBus.on('account', 'updated', () => {
+		billingCount++;
+	});
+
+	authBus.emit('account', 'updated', {});
+	assertEquals(authCount, 1);
+	assertEquals(billingCount, 0);
+
+	billingBus.emit('account', 'updated', {});
+	assertEquals(authCount, 1);
+	assertEquals(billingCount, 1);
+
+	await Promise.all([authBus.destroy(), billingBus.destroy()]);
+});
+
+Deno.test('bus: registry owns named instances', async () => {
+	const { createEventBusRegistry } = await import('../src/lib/bus/mod.ts');
+	const buses = createEventBusRegistry();
+	const authBus = await buses.register('auth',);
+	await buses.register('billing');
+
+	assertEquals(buses.has('auth'), true);
+	assertEquals(buses.names(), ['auth', 'billing']);
+	assertEquals(buses.get('auth'), authBus);
+	await assertRejects(() => buses.register('auth'));
+
+	assertEquals(await buses.destroy('auth'), true);
+	assertEquals(buses.has('auth'), false);
+	await buses.destroyAll();
+	assertEquals(buses.names(), []);
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // STORE
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -927,6 +987,135 @@ Deno.test('store: keys pattern matching', async () => {
 	assertEquals(allKeys.length >= 3, true);
 
 	closeStore();
+});
+
+Deno.test('store: factory creates independent instances', async () => {
+	const { createStore } = await import('../src/lib/store/mod.ts');
+	const authStore = await createStore({ mode: 'memory' });
+	const billingStore = await createStore({ mode: 'memory' });
+
+	await authStore.set('account:1', { source: 'auth' });
+	await billingStore.set('account:1', { source: 'billing' });
+
+	assertEquals(await authStore.get('account:1'), { source: 'auth' });
+	assertEquals(await billingStore.get('account:1'), { source: 'billing' });
+	assertEquals((await authStore.stats()).keyCount, 1);
+
+	await Promise.all([authStore.close(), billingStore.close()]);
+});
+
+Deno.test('store: real Deno KV instances are independent', async () => {
+	const { createStore } = await import('../src/lib/store/mod.ts');
+	const authKv = await createStore({
+		mode: 'kv',
+		kvPath: ':memory:',
+		kvPrefix: 'auth',
+	});
+	const billingKv = await createStore({
+		mode: 'kv',
+		kvPath: ':memory:',
+		kvPrefix: 'billing',
+	});
+
+	try {
+		assertEquals(authKv.type, 'kv');
+		assertEquals(billingKv.type, 'kv');
+		await authKv.set('account:1', 'auth-kv');
+		await billingKv.set('account:1', 'billing-kv');
+		assertEquals(await authKv.get('account:1'), 'auth-kv');
+		assertEquals(await billingKv.get('account:1'), 'billing-kv');
+
+		await authKv.flushdb();
+		assertEquals(await authKv.get('account:1'), null);
+		assertEquals(await billingKv.get('account:1'), 'billing-kv');
+	} finally {
+		await Promise.all([authKv.close(), billingKv.close()]);
+	}
+});
+
+Deno.test('store: registry owns named instances', async () => {
+	const { createStoreRegistry } = await import('../src/lib/store/mod.ts');
+	const stores = createStoreRegistry();
+	const authStore = await stores.register('auth', { mode: 'memory' });
+	await stores.register('billing', { mode: 'memory' });
+
+	assertEquals(stores.names(), ['auth', 'billing']);
+	assertEquals(stores.get('auth'), authStore);
+	await assertRejects(() => stores.register('auth', { mode: 'memory' }));
+
+	assertEquals(await stores.close('auth'), true);
+	assertEquals(stores.has('auth'), false);
+	await stores.closeAll();
+	assertEquals(stores.names(), []);
+});
+
+Deno.test('store: shared Redis client is prefix-isolated and not closed by default', async () => {
+	const { createStore, createStoreRegistry } = await import(
+		'../src/lib/store/mod.ts'
+	);
+	const values = new Map<string, string>();
+	let quitCount = 0;
+	const connectionPrefix = 'codexa::';
+	const redisClient = {
+		status: 'ready',
+		options: { keyPrefix: connectionPrefix },
+		ping: () => Promise.resolve('PONG'),
+		set(key: string, value: string): Promise<string> {
+			values.set(`${connectionPrefix}${key}`, value);
+			return Promise.resolve('OK');
+		},
+		get(key: string): Promise<string | null> {
+			return Promise.resolve(values.get(`${connectionPrefix}${key}`) ?? null);
+		},
+		del(...keys: string[]): Promise<number> {
+			let deleted = 0;
+			for (const key of keys) {
+				if (values.delete(`${connectionPrefix}${key}`)) deleted++;
+			}
+			return Promise.resolve(deleted);
+		},
+		keys(pattern: string): Promise<string[]> {
+			const prefix = pattern.endsWith('*') ? pattern.slice(0, -1) : pattern;
+			return Promise.resolve(
+				[...values.keys()].filter((key) => key.startsWith(prefix)),
+			);
+		},
+		quit(): Promise<string> {
+			quitCount++;
+			return Promise.resolve('OK');
+		},
+	};
+
+	const stores = createStoreRegistry();
+	const auth = await stores.register('auth', { mode: 'redis', redisClient });
+	const billing = await stores.register('billing', {
+		mode: 'redis',
+		redisClient,
+	});
+
+	await auth.set('account:1', 'auth-value');
+	await billing.set('account:1', 'billing-value');
+	assertEquals(await auth.get('account:1'), 'auth-value');
+	assertEquals(await billing.get('account:1'), 'billing-value');
+	assertEquals([...values.keys()].sort(), [
+		'codexa::auth:account:1',
+		'codexa::billing:account:1',
+	]);
+
+	await auth.flushdb();
+	assertEquals(await auth.get('account:1'), null);
+	assertEquals(await billing.get('account:1'), 'billing-value');
+	await stores.closeAll();
+	assertEquals(quitCount, 0);
+
+	const owned = await createStore({
+		mode: 'redis',
+		redisClient,
+		keyPrefix: 'owned:',
+		closeRedisClientOnClose: true,
+	});
+	await owned.close();
+	assertEquals(quitCount, 1);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1018,6 +1207,41 @@ Deno.test('cache: flush clears all entries in namespace', async () => {
 	closeStore();
 });
 
+Deno.test('cache: injected stores isolate identical namespaces', async () => {
+	const { createStore } = await import('../src/lib/store/mod.ts');
+	const { createCache } = await import('../src/lib/cache/mod.ts');
+	const memoryStore = await createStore({ mode: 'memory' });
+	const kvStore = await createStore({ mode: 'kv', kvPath: ':memory:' });
+	const memoryCache = createCache('router-page', { store: memoryStore });
+	const kvCache = createCache('router-page', { store: kvStore });
+
+	try {
+		await memoryCache.set('result', 'memory-value');
+		await kvCache.set('result', 'kv-value');
+
+		assertEquals(await memoryCache.get('result'), 'memory-value');
+		assertEquals(await kvCache.get('result'), 'kv-value');
+	} finally {
+		await Promise.all([memoryStore.close(), kvStore.close()]);
+	}
+});
+
+Deno.test('cache: tags are isolated by namespace', async () => {
+	const { createStore } = await import('../src/lib/store/mod.ts');
+	const { createCache } = await import('../src/lib/cache/mod.ts');
+	const sharedStore = await createStore({ mode: 'memory' });
+	const authCache = createCache('auth', { store: sharedStore });
+	const billingCache = createCache('billing', { store: sharedStore });
+
+	await authCache.set('account:1', 'auth', { tags: ['account:1'] });
+	await billingCache.set('account:1', 'billing', { tags: ['account:1'] });
+	await authCache.invalidateTag('account:1');
+
+	assertEquals(await authCache.has('account:1'), false);
+	assertEquals(await billingCache.get('account:1'), 'billing');
+	await sharedStore.close();
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // STORAGE (factory only)
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1027,13 +1251,193 @@ Deno.test('storage: createStorageManager export', async () => {
 	assertExists(createStorageManager);
 });
 
+Deno.test('storage: registry keeps named configurations independent', async () => {
+	const { createStorageRegistry } = await import('../src/lib/storage/mod.ts');
+	const storages = createStorageRegistry();
+	const media = storages.register('media', {
+		provider: 'local',
+		local: { dir: './tmp/media', baseUrl: '/media' },
+	});
+	const invoices = storages.register('invoices', {
+		provider: 'local',
+		local: { dir: './tmp/invoices', baseUrl: '/invoices' },
+	});
+
+	assertEquals(storages.names(), ['media', 'invoices']);
+	assertEquals(media.config.local?.dir, './tmp/media');
+	assertEquals(invoices.config.local?.dir, './tmp/invoices');
+	assertEquals(storages.get('media'), media);
+	assertThrows(() =>
+		storages.register('media', {
+			provider: 'local',
+			local: { dir: './tmp/duplicate' },
+		})
+	);
+
+	assertEquals(storages.remove('media'), media);
+	assertEquals(storages.has('media'), false);
+	storages.clear();
+	assertEquals(storages.names(), []);
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROOT MODULE
 // ═══════════════════════════════════════════════════════════════════════════════
 
+Deno.test('e2e: HTTP plugin uses isolated stores, caches, buses, and storages', async () => {
+	const { createApp, definePlugin } = await import('../src/lib/http/mod.ts');
+	const { createStoreRegistry } = await import('../src/lib/store/mod.ts');
+	const { createCache } = await import('../src/lib/cache/mod.ts');
+	const { createEventBusRegistry } = await import('../src/lib/bus/mod.ts');
+	const { createStorageRegistry } = await import('../src/lib/storage/mod.ts');
+
+	const stores = createStoreRegistry();
+	const buses = createEventBusRegistry();
+	const storages = createStorageRegistry();
+	const sessions = await stores.register('auth:sessions', { mode: 'memory' });
+	const wallets = await stores.register('billing:wallets', { mode: 'memory' });
+	const sessionCache = createCache('accounts', { store: sessions });
+	const walletCache = createCache('accounts', { store: wallets });
+	const authEvents = await buses.register('auth');
+	const billingEvents = await buses.register('billing');
+
+	let authEventCount = 0;
+	let billingEventCount = 0;
+	authEvents.on('account', 'read', () => {
+		authEventCount++;
+	});
+	billingEvents.on('wallet', 'read', () => {
+		billingEventCount++;
+	});
+
+	const media = storages.register(
+		'media',
+		{ provider: 'local', local: { dir: './tmp/e2e-media' } },
+		{
+			upload: () =>
+				Promise.resolve({
+					key: 'media/avatar.png',
+					size: 1,
+					contentType: 'image/png',
+					url: 'memory://media/avatar.png',
+					assetType: 'image' as const,
+				}),
+			delete: () => Promise.resolve(),
+		},
+	);
+	const invoices = storages.register(
+		'invoices',
+		{ provider: 'local', local: { dir: './tmp/e2e-invoices' } },
+		{
+			upload: () =>
+				Promise.resolve({
+					key: 'invoices/invoice.pdf',
+					size: 2,
+					contentType: 'application/pdf',
+					url: 'memory://invoices/invoice.pdf',
+					assetType: 'document' as const,
+				}),
+			delete: () => Promise.resolve(),
+		},
+	);
+
+	await sessionCache.set('u1', { kind: 'session', userId: 'u1' });
+	await walletCache.set('u1', { kind: 'wallet', balance: 125 });
+
+	const resources = {
+		sessionCache,
+		walletCache,
+		authEvents,
+		billingEvents,
+		media,
+		invoices,
+	};
+	const resourcePlugin = definePlugin<'resource-e2e', typeof resources>({
+		name: 'resource-e2e',
+		setup(scope, configured) {
+			scope.route({
+				method: 'GET',
+				path: '/e2e/session/:id',
+				handler: async (ctx) => {
+					const value = await configured.sessionCache.get(ctx.params.id);
+					configured.authEvents.emit('account', 'read', {
+						id: ctx.params.id,
+					});
+					const uploaded = await configured.media.upload(
+						new Uint8Array([1]),
+						{ contentType: 'image/png', assetType: 'image' },
+					);
+					const result = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+					return ctx.json({ value, uploadUrl: result.url });
+				},
+			});
+			scope.route({
+				method: 'GET',
+				path: '/e2e/wallet/:id',
+				handler: async (ctx) => {
+					const value = await configured.walletCache.get(ctx.params.id);
+					configured.billingEvents.emit('wallet', 'read', {
+						id: ctx.params.id,
+					});
+					const uploaded = await configured.invoices.upload(
+						new Uint8Array([1, 2]),
+						{
+							contentType: 'application/pdf',
+							assetType: 'document',
+						},
+					);
+					const result = Array.isArray(uploaded) ? uploaded[0] : uploaded;
+					return ctx.json({ value, uploadUrl: result.url });
+				},
+			});
+		},
+	});
+
+	const app = createApp('ResourceE2E')
+		.onShutdown(async () => {
+			await Promise.all([stores.closeAll(), buses.destroyAll()]);
+			storages.clear();
+		})
+		.install(resourcePlugin, resources);
+
+	try {
+		await app.boot();
+		const [sessionResponse, walletResponse] = await Promise.all([
+			app.dispatch(new Request('http://local.test/e2e/session/u1')),
+			app.dispatch(new Request('http://local.test/e2e/wallet/u1')),
+		]);
+
+		assertEquals(sessionResponse.status, 200);
+		assertEquals(await sessionResponse.json(), {
+			value: { kind: 'session', userId: 'u1' },
+			uploadUrl: 'memory://media/avatar.png',
+		});
+		assertEquals(walletResponse.status, 200);
+		assertEquals(await walletResponse.json(), {
+			value: { kind: 'wallet', balance: 125 },
+			uploadUrl: 'memory://invoices/invoice.pdf',
+		});
+		assertEquals(authEventCount, 1);
+		assertEquals(billingEventCount, 1);
+
+		await app.shutdown();
+		assertEquals(app.getPhase(), 'stopped');
+		assertEquals(stores.names(), []);
+		assertEquals(buses.names(), []);
+		assertEquals(storages.names(), []);
+		assertThrows(() => sessions.get('u1'), Error, 'closed');
+		assertThrows(() => wallets.get('u1'), Error, 'closed');
+	} finally {
+		await app.shutdown();
+		await stores.closeAll();
+		await buses.destroyAll();
+		storages.clear();
+	}
+});
+
 Deno.test('root: mod.ts keeps root import lightweight', async () => {
 	const mod = await import('../mod.ts');
-	assertEquals(mod.CODEXA_CORE_VERSION, '0.0.6');
+	assertEquals(mod.CODEXA_CORE_VERSION, '0.0.9');
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('http'), true);
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('openapi'), true);
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('store'), true);

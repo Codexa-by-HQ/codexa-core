@@ -7,8 +7,8 @@
  *
  * ```ts
  * import { createApp } from '@codexa/core/http';
- * import { eventBus } from '@codexa/core/bus';
- * import { initializeStore } from '@codexa/core/store';
+ * import { createEventBus } from '@codexa/core/bus';
+ * import { createStore } from '@codexa/core/store';
  * import { createCache } from '@codexa/core/cache';
  * import { createStorageManager } from '@codexa/core/storage';
  * import { env } from '@codexa/core/config';

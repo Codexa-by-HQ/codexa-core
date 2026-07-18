@@ -101,22 +101,27 @@ export type HandlerOptions = {
 	signal?: AbortSignal;
 };
 
+/** Event bus initialization configuration. */
+export interface EventBusConfig {
+	// deno-lint-ignore no-explicit-any
+	redisClient?: any;
+	subscribeChannels?: string[];
+}
+
 /** Public event bus contract. */
 export interface IEventBus {
-	initialize(opts: {
-		// deno-lint-ignore no-explicit-any
-		redisClient?: any;
-		subscribeChannels?: string[];
-	}): Promise<void>;
+	initialize(opts?: EventBusConfig): Promise<void>;
 	on<T = unknown>(
 		channel: string,
 		event: string,
 		handler: EventHandler<T>,
+		options?: HandlerOptions,
 	): void;
 	once<T = unknown>(
 		channel: string,
 		event: string,
 		handler: EventHandler<T>,
+		options?: HandlerOptions,
 	): void;
 	off(
 		channel?: string,
@@ -129,8 +134,16 @@ export interface IEventBus {
 		data: T,
 		options?: { distributed?: boolean },
 	): void;
+	emitAsync<T = unknown>(
+		channel: string,
+		event: string,
+		data: T,
+	): Promise<void>;
 	subscribeRedis(channel: string): Promise<void>;
+	unsubscribeRedis(channel: string): Promise<void>;
 	listActiveEvents(): string[];
+	listenerCount(channel: string, event: string): number;
+	hasListeners(channel: string, event: string): boolean;
 	destroy(): Promise<void>;
 }
 
@@ -154,6 +167,13 @@ export interface StoreConfig {
 	fallbackToMemory?: boolean;
 	// deno-lint-ignore no-explicit-any
 	redisClient?: any;
+	/** Prefix all keys and scope `flushdb()` to this logical store. */
+	keyPrefix?: string;
+	/**
+	 * Close the injected Redis client with the store. Defaults to false for
+	 * `createStore()` and true for legacy `initializeStore()`.
+	 */
+	closeRedisClientOnClose?: boolean;
 	kvPath?: string;
 	kvPrefix?: string;
 }
