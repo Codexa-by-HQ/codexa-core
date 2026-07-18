@@ -1,6 +1,6 @@
 {
 	"name": "@codexa/core",
-	"version": "0.0.8",
+	"version": "0.0.9",
 	"license": "GPL-3.0-or-later",
 	"description": "Enterprise-grade modular toolkit for Deno - plugin-first HTTP, event bus, store, cache, type-safe env, MongoDB, Redis, storage, and more.",
 	"author": "Codexa-by-HQ",
