@@ -1437,7 +1437,7 @@ Deno.test('e2e: HTTP plugin uses isolated stores, caches, buses, and storages', 
 
 Deno.test('root: mod.ts keeps root import lightweight', async () => {
 	const mod = await import('../mod.ts');
-	assertEquals(mod.CODEXA_CORE_VERSION, '0.0.9');
+	assertEquals(mod.CODEXA_CORE_VERSION, '1.0.0');
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('http'), true);
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('openapi'), true);
 	assertEquals(mod.CODEXA_CORE_MODULES.includes('store'), true);

@@ -1,6 +1,6 @@
 {
 	"name": "@codexa/core",
-	"version": "0.0.9",
+	"version": "1.0.0",
 	"license": "GPL-3.0-or-later",
 	"description": "Enterprise-grade modular toolkit for Deno - plugin-first HTTP, event bus, store, cache, type-safe env, MongoDB, Redis, storage, and more.",
 	"author": "Codexa-by-HQ",
@@ -87,11 +87,11 @@
 		"publish": "deno publish"
 	},
 	"imports": {
-		"@std/path": "jsr:@std/path@^1.1.5",
+		"@std/path": "jsr:@std/path@^1.1.6",
 		"@zod/zod": "jsr:@zod/zod@^4.4.3",
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.7",
 		"ioredis": "npm:ioredis@^5.11.1",
-		"mongodb": "npm:mongodb@^7.4.0",
+		"mongodb": "npm:mongodb@^7.5.0",
 		"qs": "npm:qs@^6.15.3",
 		"rou3": "npm:rou3@^0.8.1",
 		"ua-parser-js": "npm:ua-parser-js@^2.0.10",
