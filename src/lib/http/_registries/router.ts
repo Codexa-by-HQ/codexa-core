@@ -7,7 +7,6 @@ import type {
 	RouteHandler,
 	RouteMiddleware,
 	RouteOptions,
-	SafeState,
 	StateShape,
 } from '../mod.ts';
 import type {

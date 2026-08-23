@@ -11,7 +11,6 @@ import type {
 	IPluginMetaData,
 	LifeCyclePhase,
 	QueryValue,
-	RequestHookEvent,
 	RequestState,
 	RouteMiddleware,
 	RouteParams,
@@ -88,8 +87,7 @@ const PHASE_TRANSITIONS: ReadonlyMap<
 > = new Map([
 	['idle', new Set(['booting', 'stopped'])],
 	['booting', new Set(['ready', 'stopped'])],
-	['ready', new Set(['listening', 'shutting_down', 'stopped'])],
-	['listening', new Set(['shutting_down', 'stopped'])],
+	['ready', new Set(['shutting_down', 'stopped'])],
 	['shutting_down', new Set(['stopped'])],
 	['stopped', new Set<LifeCyclePhase>()],
 ]);
@@ -311,7 +309,8 @@ export function normalizeAppliedOn(
 	values?: readonly string[],
 ): readonly string[] {
 	if (values === undefined || values.length === 0) {
-		return Object.freeze([] as string[]);
+		// return Object.freeze(['*']);
+		return Object.freeze([] as string[]); // if not provide values dont do anything, dont apply by default user must specify pattern/value
 	}
 	const out: string[] = [];
 	const seen = new Set<string>();

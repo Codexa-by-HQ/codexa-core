@@ -93,9 +93,9 @@
 		"ioredis": "npm:ioredis@^5.11.1",
 		"mongodb": "npm:mongodb@^7.5.0",
 		"qs": "npm:qs@^6.15.3",
-		"rou3": "npm:rou3@^0.8.1",
+		"rou3": "npm:rou3@^0.9.1",
 		"ua-parser-js": "npm:ua-parser-js@^2.0.10",
-		"@noble/hashes": "npm:@noble/hashes@2.0.1"
+		"@noble/hashes": "npm:@noble/hashes@2.2.0"
 	},
 	"lint": {
 		"include": ["./src/", "./mod.ts"],

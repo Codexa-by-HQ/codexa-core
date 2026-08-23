@@ -4,7 +4,7 @@
  * Plugin-first HTTP for Codexa applications.
  *
  * Slogan: build APIs as installable capabilities, then let Rou3 keep request
- * dispatch fast.
+ * routing fast.
  *
  * This module is the public contract: request context, middleware, plugin,
  * inspection, lifecycle, and helper types live here so plugin authors can use
@@ -26,8 +26,32 @@
  * });
  *
  * const app = createApp('api').install(healthPlugin);
- * await app.boot();
- * await app.listen({ port: 8000 });
+ *
+ * // Deno:
+ * Deno.serve(app.dispatch);
+ * 
+ * // Bun:
+ * Bun.serve({
+ *   port: 3000,
+ *   fetch: app.dispatch,
+ * });
+ * 
+ * // Cloudflare Worker:
+ * export default {
+ *   fetch: app.dispatch,
+ * };
+ * 
+ * // Direct invocation (tests, jobs, other frameworks):
+ * const response = await app.dispatch(
+ *   new Request('http://localhost/api'),
+ * );
+ * 
+ * // Node.js with a Fetch-compatible adapter such as `@hono/node-server`:
+ * import { serve } from '@hono/node-server';
+ * serve({ fetch: app.dispatch, port: 3000 });
+ *
+ * // The same app.dispatch handler can be passed to Bun, Cloudflare Workers,
+ * // Node.js Web-standard adapters, and other Fetch API runtimes.
  * `
  */
 
@@ -42,7 +66,6 @@ export type LifeCyclePhase =
 	| 'idle'
 	| 'booting'
 	| 'ready'
-	| 'listening'
 	| 'shutting_down'
 	| 'stopped';
 
@@ -51,16 +74,8 @@ export type HttpMethod = (typeof HTTP_METHODS)[number];
 /** Async or sync lifecycle hook callback. */
 export type Hook = () => void | Promise<void>;
 
-/** Options accepted by {@link ICodexaHttp.listen}. */
-export interface AppListenOptions {
-	port?: number;
-	hostname?: string;
-	signal?: AbortSignal;
-	onListen?: (addr: Deno.NetAddr) => void;
-	secure?: boolean;
-	cert?: string;
-	key?: string;
-}
+/** A runtime-neutral Web Request/Response dispatcher. */
+export type DispatchHandler = (request: Request) => Promise<Response>;
 
 /** Plain object shape accepted for typed request state and locals. */
 export type StateShape = Record<string, unknown>;
@@ -377,6 +392,7 @@ export interface UseOptions<
 	TProvide extends StateShape = TExposed,
 > {
 	tags?: readonly string[];
+	/** Mention pattern/value, otherwise it wont apply to any route by default */
 	appliedOn?: readonly string[];
 	name?: string;
 	priority?: number;
@@ -503,7 +519,7 @@ export interface IPluginVersionedScope<
 	): IPluginScope<SafeState<StateExt & RouterState>, PluginName, Deps>;
 }
 
-/** Controlled plugin setup scope. Plugins cannot listen or own app shutdown. */
+/** Controlled plugin setup scope. Plugins cannot own app shutdown. */
 export interface IPluginScope<
 	StateExt extends StateShape = Empty,
 	PluginName extends string = string,
@@ -724,8 +740,14 @@ export interface ICodexaHttp<
 	disableByTags(...tags: string[]): this;
 
 	boot(setup?: () => Promise<void> | void): Promise<this>;
-	listen(options?: AppListenOptions): Promise<void>;
-	dispatch(request: Request): Promise<Response>;
+	/**
+	 * Bound, runtime-neutral request dispatcher.
+	 *
+	 * Pass it directly to a Fetch API compatible server or adapter, such as
+	 * `Deno.serve(app.dispatch)` or `Bun.serve({ fetch: app.dispatch })`.
+	 * The application boots lazily on its first request.
+	 */
+	readonly dispatch: DispatchHandler;
 	shutdown(): Promise<void>;
 	whenStopped(): Promise<void>;
 	onShutdown(hook: Hook): this;
@@ -739,7 +761,6 @@ export interface ICodexaHttp<
 	toRegExp(method: HttpMethod, path: string): RegExp | null;
 	getPhase(): LifeCyclePhase;
 	get size(): number;
-	getServer(): Deno.HttpServer | undefined;
 }
 
 // Registries

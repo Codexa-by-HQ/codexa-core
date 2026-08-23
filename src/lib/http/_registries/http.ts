@@ -6,7 +6,6 @@ import {
 } from '../../../providers/rou3.ts';
 import { DEFAULT_VERSION_HEADER } from '../_internals/constants.ts';
 import type {
-	AppListenOptions,
 	Empty,
 	Hook,
 	HookErrorSnapshot,
@@ -25,7 +24,6 @@ import type {
 	RequestErrorHook,
 	RequestHookEvent,
 	RequestSuccessHook,
-	RouteParams,
 	StateShape,
 } from '../mod.ts';
 import type {
@@ -101,7 +99,6 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 	#pluginRecords = new Map<string, PluginRecord>();
 	#exposedServices = new Map<string, Map<string, unknown>>();
 	#serviceViews = new Map<string, Readonly<Record<string, unknown>>>();
-	#server: Deno.HttpServer | undefined;
 	#stoppedResolve: (() => void) | undefined;
 	#shutdownPromise: Promise<void> | undefined;
 	#bootPromise: Promise<this> | undefined;
@@ -341,7 +338,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 	}
 
 	public async boot(setup?: () => Promise<void> | void): Promise<this> {
-		if (this.#phase === 'ready' || this.#phase === 'listening') {
+		if (this.#phase === 'ready') {
 			return this;
 		}
 		if (this.#phase === 'booting' && this.#bootPromise !== undefined) {
@@ -357,36 +354,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 		return await this.#bootPromise;
 	}
 
-	public async listen(options: AppListenOptions = {}): Promise<void> {
-		await this.boot();
-		if (this.#phase !== 'ready') {
-			frameworkMessage(
-				'error',
-				`Cannot listen() while lifecycle phase is ${this.#phase}.`,
-			);
-		}
-		const serveOptions = this.#createServeOptions(options);
-		this.#phase = setPhase(this.#phase, 'listening');
-		try {
-			const server = Deno.serve(
-				serveOptions,
-				(request: Request) => this.dispatch(request),
-			);
-			this.#server = server;
-			await this.#server.finished;
-		} catch (error) {
-			if (this.#phase !== 'shutting_down' && this.#phase !== 'stopped') {
-				await this.#handleServerFailure(error);
-			}
-			throw error;
-		} finally {
-			if (this.#phase !== 'stopped') {
-				await this.shutdown();
-			}
-		}
-	}
-
-	public async dispatch(request: Request): Promise<Response> {
+	public readonly dispatch = async (request: Request): Promise<Response> => {
 		if (!this.#committed) {
 			await this.boot();
 		}
@@ -468,7 +436,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			}
 			return response;
 		}
-	}
+	};
 
 	public async shutdown(): Promise<void> {
 		if (this.#phase === 'stopped') {
@@ -538,10 +506,6 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 		return this.#committed
 			? this.#compiledRoutesMap.size
 			: this.#routesMap.size;
-	}
-
-	public getServer(): Deno.HttpServer | undefined {
-		return this.#server;
 	}
 
 	#exposeService<PluginName extends string>(
@@ -616,70 +580,27 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 		}
 	}
 
-	#createServeOptions(
-		options: AppListenOptions,
-	): Deno.ServeTcpOptions | (Deno.ServeTcpOptions & Deno.TlsCertifiedKeyPem) {
-		if (options.secure === true) {
-			if (options.cert === undefined || options.cert.trim() === '') {
-				frameworkMessage(
-					'error',
-					'secure listen() requires a TLS cert.',
-				);
-			}
-			if (options.key === undefined || options.key.trim() === '') {
-				frameworkMessage(
-					'error',
-					'secure listen() requires a TLS key.',
-				);
-			}
-			return {
-				port: options.port ?? 8000,
-				hostname: options.hostname,
-				signal: options.signal,
-				onListen: options.onListen,
-				cert: options.cert,
-				key: options.key,
-			};
-		}
-		return {
-			port: options.port ?? 8000,
-			hostname: options.hostname,
-			signal: options.signal,
-			onListen: options.onListen,
-		};
-	}
-
-	async #handleServerFailure(error: unknown): Promise<void> {
-		frameworkMessage('error', 'Server failed.', error, false);
-		await this.shutdown();
-	}
-
 	#resolveStopped(): void {
 		this.#stoppedResolve?.();
 		this.#stoppedResolve = undefined;
 	}
 
 	async #performShutdown(): Promise<void> {
+		if (this.#phase === 'booting' && this.#bootPromise !== undefined) {
+			try {
+				await this.#bootPromise;
+			} catch {
+				// Boot already moved the application to stopped and preserved the
+				// original failure for the caller that initiated boot.
+				return;
+			}
+		}
 		if (this.#phase === 'idle') {
 			this.#phase = setPhase(this.#phase, 'stopped');
-		} else if (this.#phase === 'ready' || this.#phase === 'listening') {
+		} else if (this.#phase === 'ready') {
 			this.#phase = setPhase(this.#phase, 'shutting_down');
 		}
 		try {
-			const server = this.#server;
-			if (server !== undefined) {
-				this.#server = undefined;
-				try {
-					await server.shutdown();
-				} catch (error) {
-					frameworkMessage(
-						'error',
-						'Server shutdown failed.',
-						error,
-						false,
-					);
-				}
-			}
 			await executeHooksSafe(this.#shutdownHooks, 'shutdown');
 			for (const hooks of this.#pluginShutdownHooks.values()) {
 				await executeHooksSafe(hooks, 'shutdown');
@@ -863,12 +784,11 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			if (this.#routesMap.has(route.key)) {
 				frameworkMessage(
 					'error',
-					`Duplicate route across plugins: ${
-						formatRouteIdentity(
-							route.method,
-							route.path,
-							route.meta.version,
-						)
+					`Duplicate route across plugins: ${formatRouteIdentity(
+						route.method,
+						route.path,
+						route.meta.version,
+					)
 					}`,
 				);
 			}
@@ -1008,8 +928,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 					) {
 						frameworkMessage(
 							'error',
-							`Version header conflict for ${
-								formatRouteIdentity(route.method, route.path)
+							`Version header conflict for ${formatRouteIdentity(route.method, route.path)
 							}. Use one version header per method/path bucket.`,
 						);
 					}
@@ -1058,6 +977,18 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			(query?.routes?.length ?? 0) > 0 ||
 			(query?.methods?.length ?? 0) > 0 ||
 			(query?.versions?.length ?? 0) > 0;
+
+		// openly provide access to middlewares,services,plugins
+		// const wantsMiddlewares = !hasQuery ||
+		// 	((query?.tags?.length ?? 0) > 0 ||
+		// 		(query?.plugins?.length ?? 0) > 0);
+		// const wantsPlugins = !hasQuery ||
+		// 	((query?.tags?.length ?? 0) > 0 ||
+		// 		(query?.plugins?.length ?? 0) > 0);
+		// const wantsServices = !hasQuery ||
+		// 	(query?.services?.length ?? 0) > 0;
+
+		// provide access only when needed/quried
 		const wantsMiddlewares = hasQuery &&
 			((query?.tags?.length ?? 0) > 0 ||
 				(query?.plugins?.length ?? 0) > 0);
@@ -1065,6 +996,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			((query?.tags?.length ?? 0) > 0 ||
 				(query?.plugins?.length ?? 0) > 0);
 		const wantsServices = hasQuery && (query?.services?.length ?? 0) > 0;
+
 
 		const routeList = [...this.#routesMap.values()].sort((a, b) =>
 			a.order - b.order
@@ -1451,7 +1383,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 /**
  * Create a Codexa HTTP app.
  *
- * The app owns plugin installation, lifecycle, dispatch, tag controls, and
+ * The app owns plugin installation, lifecycle, request handling, tag controls, and
  * service access from installed plugins.
  */
 export function createApp<InstalledPlugins extends string = never>(
