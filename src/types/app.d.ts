@@ -30,11 +30,11 @@ export interface Logger {
 
 /** Serialized log entry shape used by file logging. */
 export interface LogEntry {
-	timestamp: string;
-	level: LogLevelT;
-	module: string;
-	message: string;
-	data?: unknown;
+	readonly timestamp: string;
+	readonly level: LogLevelT;
+	readonly module: string;
+	readonly message: string;
+	readonly data?: unknown;
 }
 
 // Device / Platform / OS
@@ -249,27 +249,27 @@ export interface TransformationOptions {
 	height?: number | `${number}%`;
 	crop?: 'scale' | 'fill' | 'fit' | 'crop' | 'pad' | 'limit' | string;
 	format?:
-		| 'webp'
-		| 'avif'
-		| 'jpeg'
-		| 'png'
-		| 'mp4'
-		| 'webm'
-		| 'mov'
-		| 'jpg'
-		| 'gif'
-		| 'svg'
-		| 'auto'
-		| string;
+	| 'webp'
+	| 'avif'
+	| 'jpeg'
+	| 'png'
+	| 'mp4'
+	| 'webm'
+	| 'mov'
+	| 'jpg'
+	| 'gif'
+	| 'svg'
+	| 'auto'
+	| string;
 	quality?: number | 'auto';
 
 	// Escape hatches for provider-specific options
 	cloudinaryOpts?:
-		| Record<string, unknown>
-		| Array<Record<string, unknown>>;
+	| Record<string, unknown>
+	| Array<Record<string, unknown>>;
 	imagekitOpts?:
-		| Record<string, unknown>
-		| Array<Record<string, unknown>>;
+	| Record<string, unknown>
+	| Array<Record<string, unknown>>;
 }
 
 /** Upload metadata for server-side uploads. */

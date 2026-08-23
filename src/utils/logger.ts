@@ -1,7 +1,7 @@
 /**
  * @module @codexa/core/logger
  *
- * Structured console and optional file logger for Codexa applications.
+ * Runtime-neutral structured logger with console output and optional writers.
  *
  * @example
  * ```ts
@@ -15,7 +15,6 @@
 
 import type {
 	LogEntry,
-	LogFileConfig,
 	Logger,
 	LogLevelT,
 } from '../types/app.d.ts';
@@ -30,7 +29,7 @@ const LOG_LEVELS: Record<LogLevelT, number> = {
 };
 
 // logger colors
-const COLORS = {
+const COLORS = Object.freeze({
 	reset: '\x1b[0m',
 	bold: '\x1b[1m',
 	dim: '\x1b[2m',
@@ -46,293 +45,322 @@ const COLORS = {
 	timestamp: '\x1b[90m', // Gray
 	module: '\x1b[35m', // Magenta
 	data: '\x1b[90m', // Gray
-} as const;
-
-const ENV_TYPE = Deno.env.get('ENV_TYPE') || 'development';
-const IS_PRODUCTION = ENV_TYPE === 'production';
-const GLOBAL_LOG_LEVEL: LogLevelT = (Deno.env.get('LOG_LEVEL') as LogLevelT) ||
-	'debug';
-
-const GLOBAL_FILE_CONFIG: LogFileConfig = {
-	enabled: Deno.env.get('LOG_FILE_ENABLED') === 'true',
-	dir: Deno.env.get('LOG_DIR') || './logs',
-	maxSize: parseInt(Deno.env.get('LOG_MAX_FILE_SIZE') || '5242880'), // 5MB
-	maxFiles: parseInt(Deno.env.get('LOG_MAX_FILES') || '5'),
-};
+});
 
 /**
- * Create a logger scoped to a module name.
+ * Runtime-neutral destination for structured logs.
  *
- * The logger respects `LOG_LEVEL`, `ENV_TYPE`, and optional file logging
- * environment variables. Use `logger.child(name)` for nested module names.
+ * A writer can forward entries to a file, database, remote logging service,
+ * Cloudflare Analytics Engine, or another runtime-specific destination.
+ */
+export type LogWriter = (
+	entry: Readonly<LogEntry>,
+) => void | Promise<void>;
+
+/**
+ * Create a runtime-neutral logger scoped to a module name.
+ *
+ * Logs are written to the console by default. An optional writer can forward
+ * structured entries to files, databases, or external logging services.
+ * Use `logger.child(name)` for nested module names.
  */
 export function createLogger(
 	module: string,
-	options?: { level?: LogLevelT; file?: Partial<LogFileConfig> },
+	options?: { level?: LogLevelT; production?: boolean; writer?: LogWriter; },
 ): Logger {
-	const minLevel = options?.level || GLOBAL_LOG_LEVEL;
-	const fileConfig: LogFileConfig = {
-		...GLOBAL_FILE_CONFIG,
-		...options?.file,
-	};
 
-	const logger: Logger = {
-		debug: createLogMethod('debug', module, minLevel, fileConfig),
-		info: createLogMethod('info', module, minLevel, fileConfig),
-		warn: createLogMethod('warn', module, minLevel, fileConfig),
-		error: createLogMethod('error', module, minLevel, fileConfig),
-		fatal: createLogMethod('fatal', module, minLevel, fileConfig),
+	const normalizedModule = normalizeModuleName(module);
+	const minimumLevel = options?.level ?? "debug";
+	const production = options?.production ?? false;
+	const writer = options?.writer;
 
-		/**
-		 * Create a child logger with a sub-module prefix.
-		 * @example
-		 * ```ts
-		 * const log = createLogger('Auth');
-		 * const childLog = log.child('TOTP');
-		 * childLog.info('Verified'); // [Auth:TOTP] Verified
-		 * ```
-		 */
+	assertLogLevel(minimumLevel);
+
+	return Object.freeze({
+		debug: createLogMethod(
+			"debug",
+			normalizedModule,
+			minimumLevel,
+			production,
+			writer,
+		),
+
+		info: createLogMethod(
+			"info",
+			normalizedModule,
+			minimumLevel,
+			production,
+			writer,
+		),
+
+		warn: createLogMethod(
+			"warn",
+			normalizedModule,
+			minimumLevel,
+			production,
+			writer,
+		),
+
+		error: createLogMethod(
+			"error",
+			normalizedModule,
+			minimumLevel,
+			production,
+			writer,
+		),
+
+		fatal: createLogMethod(
+			"fatal",
+			normalizedModule,
+			minimumLevel,
+			production,
+			writer,
+		),
+
 		child(subModule: string): Logger {
-			return createLogger(`${module}:${subModule}`, {
-				level: minLevel,
-				file: fileConfig,
-			});
+			const normalizedSubModule = normalizeModuleName(subModule);
+
+			return createLogger(
+				`${normalizedModule}:${normalizedSubModule}`,
+				{
+					level: minimumLevel,
+					production,
+					writer,
+				},
+			);
 		},
-	};
-	return logger;
+	});
 }
 
 // helpers
-let fileWriterInitialized = false;
-function writeToConsole(level: LogLevelT, formattedMessage: string) {
-	switch (level) {
-		case 'debug':
-			console.log(formattedMessage);
-			break;
-		case 'info':
-			console.info(formattedMessage);
-			break;
-		case 'warn':
-			console.warn(formattedMessage);
-			break;
-		case 'error':
-			console.error(formattedMessage);
-			break;
-		case 'fatal':
-			console.error(formattedMessage);
-			break;
-		default:
-			break;
-	}
-}
-function ensureLogDir(dir: string): void {
-	try {
-		Deno.mkdirSync(dir, { recursive: true });
-	} catch {
-		// Directory already exists or cannot be created
-	}
-}
-function getLogFilePath(dir: string, index?: number): string {
-	if (index === undefined || index === 0) {
-		return `${dir}/app.log`;
-	}
-	return `${dir}/app.${index}.log`;
-}
-function getFileSize(path: string): number {
-	try {
-		const stat = Deno.statSync(path);
-		return stat.size;
-	} catch {
-		return 0;
-	}
-}
-function rotateLogFiles(config: LogFileConfig): void {
-	const { dir, maxFiles } = config;
-
-	// Delete the oldest log file if it exists
-	const oldestPath = getLogFilePath(dir, maxFiles);
-	try {
-		Deno.removeSync(oldestPath);
-	} catch {
-		// File doesn't exist, that's fine
-	}
-
-	// Shift all existing rotated files up by one
-	for (let i = maxFiles - 1; i >= 1; i--) {
-		const currentPath = getLogFilePath(dir, i);
-		const nextPath = getLogFilePath(dir, i + 1);
-		try {
-			Deno.renameSync(currentPath, nextPath);
-		} catch {
-			// File doesn't exist, skip
-		}
-	}
-
-	// Rename current log to .1
-	const currentLogPath = getLogFilePath(dir);
-	const rotatedPath = getLogFilePath(dir, 1);
-	try {
-		Deno.renameSync(currentLogPath, rotatedPath);
-	} catch {
-		// Current log doesn't exist, skip
-	}
-}
-function writeToFile(content: string, fileConfig: LogFileConfig) {
-	if (!fileConfig.enabled) return;
-
-	if (!fileWriterInitialized) {
-		ensureLogDir(fileConfig.dir);
-		fileWriterInitialized = true;
-	}
-	const logPath = getLogFilePath(fileConfig.dir);
-
-	// Check if rotation is needed
-	const currentSize = getFileSize(logPath);
-	if (currentSize >= fileConfig.maxSize) {
-		rotateLogFiles(fileConfig);
-	}
-
-	// Append to log file
-	try {
-		Deno.writeTextFileSync(logPath, content + '\n', { append: true });
-	} catch (err) {
-		// Last resort: log to stderr if file writing fails
-		console.error(`[Logger] Failed to write to log file: ${err}`);
-	}
-}
-
 function createLogMethod(
 	level: LogLevelT,
 	module: string,
 	minLevel: LogLevelT,
-	fileConfig: LogFileConfig,
+	production: boolean,
+	writer?: LogWriter,
 ) {
-	return (msg: string, ...args: unknown[]) => {
-		if (!shouldLog(level, minLevel)) return;
+	return (message: string, ...data: unknown[]): void => {
+		if (!shouldLog(level, minLevel)) {
+			return;
+		}
 
-		// Console output
-		if (IS_PRODUCTION) {
-			const jsonOutput = formatJsonOutput(level, module, msg, args);
-			writeToConsole(level, jsonOutput);
+		const entry = createLogEntry(level, module, message, data);
 
-			// File output (always JSON in production)
-			writeToFile(jsonOutput, fileConfig);
+		if (production) {
+			writeToConsole(level, JSON.stringify(entry));
 		} else {
-			const devOutput = formatDevOutput(level, module, msg, args);
-			writeToConsole(level, devOutput);
+			writeToConsole(level, formatDevelopmentEntry(entry));
+		}
 
-			// File output (JSON format for parseability even in dev)
-			if (fileConfig.enabled) {
-				const jsonOutput = formatJsonOutput(
-					level,
-					module,
-					msg,
-					args,
-				);
-				writeToFile(jsonOutput, fileConfig);
-			}
+		if (writer !== undefined) {
+			safelyWriteEntry(writer, entry);
 		}
 	};
 }
+
+
+function createLogEntry(
+  level: LogLevelT,
+  module: string,
+  message: string,
+  data: readonly unknown[],
+): Readonly<LogEntry> {
+  const normalizedData = normalizeLogData(data);
+
+  return Object.freeze({
+    timestamp: new Date().toISOString(),
+    level,
+    module,
+    message,
+    ...(normalizedData === undefined
+      ? {}
+      : { data: normalizedData }),
+  });
+}
+
 function shouldLog(level: LogLevelT, minLevel: LogLevelT): boolean {
 	return LOG_LEVELS[level] >= LOG_LEVELS[minLevel];
 }
 
-function formatJsonOutput(
-	level: LogLevelT,
-	module: string,
-	msg: string,
-	args: unknown[],
+function writeToConsole(
+  level: LogLevelT,
+  output: string,
+): void {
+  switch (level) {
+    case "debug":
+      console.debug(output);
+      return;
+
+    case "info":
+      console.info(output);
+      return;
+
+    case "warn":
+      console.warn(output);
+      return;
+
+    case "error":
+    case "fatal":
+      console.error(output);
+      return;
+  }
+}
+
+function safelyWriteEntry(
+  writer: LogWriter,
+  entry: Readonly<LogEntry>,
+): void {
+  try {
+    const result = writer(entry);
+
+    if (isPromiseLike(result)) {
+      void result.catch((error: unknown) => {
+        console.error(
+          "[Logger] Asynchronous log writer failed.",
+          error,
+        );
+      });
+    }
+  } catch (error) {
+    console.error(
+      "[Logger] Log writer failed.",
+      error,
+    );
+  }
+}
+
+function isPromiseLike(
+  value: unknown,
+): value is PromiseLike<void> & {
+  catch(
+    onRejected: (error: unknown) => void,
+  ): PromiseLike<void>;
+} {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function" &&
+    "catch" in value &&
+    typeof value.catch === "function"
+  );
+}
+
+function normalizeModuleName(module: string): string {
+  const normalized = module.trim();
+
+  if (normalized === "") {
+    throw new Error("Logger module name cannot be empty.");
+  }
+
+  return normalized;
+}
+
+function assertLogLevel(
+  level: string,
+): asserts level is LogLevelT {
+  if (!(level in LOG_LEVELS)) {
+    throw new Error(`Invalid log level: ${level}`);
+  }
+}
+
+
+function normalizeLogData(
+  data: readonly unknown[],
+): unknown {
+  if (data.length === 0) {
+    return undefined;
+  }
+
+  if (data.length === 1) {
+    return serializeValue(data[0]);
+  }
+
+  return data.map(serializeValue);
+}
+
+function serializeValue(value: unknown): unknown {
+  if (value instanceof Error) {
+    return Object.freeze({
+      name: value.name,
+      message: value.message,
+      stack: value.stack,
+      cause: serializeErrorCause(value.cause),
+    });
+  }
+
+  return value;
+}
+
+function serializeErrorCause(
+  cause: unknown,
+): unknown {
+  if (cause === undefined) {
+    return undefined;
+  }
+
+  if (cause instanceof Error) {
+    return Object.freeze({
+      name: cause.name,
+      message: cause.message,
+      stack: cause.stack,
+    });
+  }
+
+  return cause;
+}
+
+
+function formatDevelopmentEntry(
+  entry: Readonly<LogEntry>,
 ): string {
-	const entry: LogEntry = {
-		timestamp: formatISOTimestamp(),
-		level,
-		module,
-		message: msg,
-	};
+  const level = entry.level.toUpperCase().padEnd(5);
+  const levelColor = COLORS[entry.level];
 
-	if (args.length > 0) {
-		if (args.length === 1) {
-			const arg = args[0];
-			if (arg instanceof Error) {
-				entry.data = {
-					name: arg.name,
-					message: arg.message,
-					stack: arg.stack,
-				};
-			} else {
-				entry.data = arg;
-			}
-		} else {
-			entry.data = args;
-		}
-	}
+  let output =
+    `${COLORS.timestamp}${formatTimestamp(entry.timestamp)}${COLORS.reset} ` +
+    `${levelColor}${COLORS.bold}${level}${COLORS.reset} ` +
+    `${COLORS.module}[${entry.module}]${COLORS.reset} ` +
+    entry.message;
 
-	return JSON.stringify(entry, null, 2);
+  if (entry.data !== undefined) {
+    output += ` ${levelColor}${formatData(entry.data)}${COLORS.reset}`;
+  }
+
+  return output;
 }
-function formatTimestamp(): string {
-	const now = new Date();
-	const pad = (n: number, len = 2) => String(n).padStart(len, '0');
-	return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${
-		pad(now.getDate())
-	} ${pad(now.getHours())}:${pad(now.getMinutes())}:${
-		pad(now.getSeconds())
-	}.${pad(now.getMilliseconds(), 3)}`;
-}
-function formatISOTimestamp(): string {
-	return new Date().toISOString();
-}
-function formatDevOutput(
-	level: LogLevelT,
-	module: string,
-	msg: string,
-	args: unknown[],
+
+function formatTimestamp(
+  isoTimestamp: string,
 ): string {
-	const ts = formatTimestamp();
-	const levelUpper = level.toUpperCase().padEnd(5);
-	const color = COLORS[level as keyof typeof COLORS];
-	const dataStr = formatDataArgs(args);
+  const date = new Date(isoTimestamp);
 
-	let output = `${COLORS.timestamp}${ts}${COLORS.reset} `;
-	output += `${color}${COLORS.bold}${levelUpper}${COLORS.reset} `;
-	output += `${COLORS.module}[${module}]${COLORS.reset} `;
-	output += msg;
+  const pad = (
+    value: number,
+    length = 2,
+  ): string => String(value).padStart(length, "0");
 
-	if (dataStr) {
-		output += ` ${
-			COLORS[level as keyof typeof COLORS]
-		}${dataStr}${COLORS.reset}`;
-	}
-
-	return output;
+  return (
+    `${date.getFullYear()}-` +
+    `${pad(date.getMonth() + 1)}-` +
+    `${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:` +
+    `${pad(date.getMinutes())}:` +
+    `${pad(date.getSeconds())}.` +
+    pad(date.getMilliseconds(), 3)
+  );
 }
-function formatDataArgs(args: unknown[]): string | undefined {
-	if (args.length === 0) return undefined;
-	if (args.length === 1) {
-		const arg = args[0];
-		if (arg instanceof Error) {
-			return JSON.stringify(
-				{
-					name: arg.name,
-					message: arg.message,
-					stack: arg.stack,
-				},
-				null,
-				2,
-			);
-		}
-		if (typeof arg === 'object' && arg !== null) {
-			try {
-				return JSON.stringify(arg, null, 2);
-			} catch {
-				return String(arg);
-			}
-		}
-		return String(arg);
-	}
-	try {
-		return JSON.stringify(args, null, 2);
-	} catch {
-		return args.map(String).join(' ');
-	}
+
+function formatData(data: unknown): string {
+  if (typeof data === "string") {
+    return data;
+  }
+
+  try {
+    return JSON.stringify(data, null, 2);
+  } catch {
+    return String(data);
+  }
 }
+
