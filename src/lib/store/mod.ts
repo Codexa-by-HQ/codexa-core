@@ -41,6 +41,30 @@
  * import { initializeStore, store } from '@codexa/core/store';
  * await initializeStore({ mode: 'kv', kvPath: './data/kv.db' });
  * ```
+ *
+ * @example Atomic read and delete
+ * ```ts
+ * const transaction = await authStore.take<AuthTransaction>('txn:123');
+ * if (transaction === null) {
+ *   throw new Error('Transaction is missing, expired, or already consumed.');
+ * }
+ * ```
+ *
+ * @example Atomic compare and set
+ * ```ts
+ * while (true) {
+ *   const current = await authStore.get<AuthTransaction>('txn:123');
+ *   if (current === null) throw new Error('Transaction is missing.');
+ *
+ *   const next = { ...current, loginVerified: true };
+ *   const updated = await authStore.compareAndSet(
+ *     'txn:123',
+ *     current,
+ *     next,
+ *   );
+ *   if (updated) break;
+ * }
+ * ```
  */
 
 import { createLogger } from '../../utils/logger.ts';
@@ -54,6 +78,32 @@ import type {
 
 const log = createLogger('Codexa:Store');
 
+interface AtomicStoreBackend extends IStore {
+	take<T = unknown>(key: string): Promise<T | null>;
+	compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean>;
+}
+
+function serializeStoreValue(value: unknown): string {
+	const serialized = JSON.stringify(value);
+	if (serialized === undefined) {
+		throw new TypeError('Store values must be JSON serializable.');
+	}
+	return serialized;
+}
+
+function deserializeStoreValue<T>(value: string): T {
+	try {
+		return JSON.parse(value) as T;
+	} catch {
+		return value as T;
+	}
+}
+
 // 1. Memory Store
 
 interface MemoryEntry {
@@ -61,7 +111,7 @@ interface MemoryEntry {
 	expiresAt?: number;
 }
 
-class MemoryStore implements IStore {
+class MemoryStore implements AtomicStoreBackend {
 	private store = new Map<string, MemoryEntry>();
 	private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 	private readonly cleanupMs: number;
@@ -114,6 +164,35 @@ class MemoryStore implements IStore {
 	get<T = unknown>(key: string): Promise<T | null> {
 		const entry = this.getEntry(key);
 		return Promise.resolve(entry ? (entry.value as T) : null);
+	}
+
+	take<T = unknown>(key: string): Promise<T | null> {
+		const entry = this.getEntry(key);
+		if (!entry) return Promise.resolve(null);
+		this.store.delete(key);
+		return Promise.resolve(entry.value as T);
+	}
+
+	compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean> {
+		const entry = this.getEntry(key);
+		if (
+			!entry ||
+			serializeStoreValue(entry.value) !== serializeStoreValue(expected)
+		) return Promise.resolve(false);
+
+		const ttl = options?.ttl ?? options?.ex;
+		this.store.set(key, {
+			value: next,
+			expiresAt: ttl && ttl > 0
+				? Date.now() + ttl * 1000
+				: entry.expiresAt,
+		});
+		return Promise.resolve(true);
 	}
 
 	del(...keys: string[]): Promise<number> {
@@ -206,7 +285,36 @@ class MemoryStore implements IStore {
 
 // 2. Redis Store
 
-class RedisStore implements IStore {
+const REDIS_TAKE_SCRIPT = `
+local value = redis.call('GET', KEYS[1])
+if not value then
+	return false
+end
+redis.call('DEL', KEYS[1])
+return value
+`;
+
+const REDIS_COMPARE_AND_SET_SCRIPT = `
+local current = redis.call('GET', KEYS[1])
+if not current or current ~= ARGV[1] then
+	return 0
+end
+
+local requestedTtl = tonumber(ARGV[3])
+if requestedTtl and requestedTtl > 0 then
+	redis.call('SET', KEYS[1], ARGV[2], 'EX', requestedTtl)
+else
+	local remainingTtl = redis.call('PTTL', KEYS[1])
+	redis.call('SET', KEYS[1], ARGV[2])
+	if remainingTtl > 0 then
+		redis.call('PEXPIRE', KEYS[1], remainingTtl)
+	end
+end
+
+return 1
+`;
+
+class RedisStore implements AtomicStoreBackend {
 	constructor(
 		// deno-lint-ignore no-explicit-any
 		private readonly redis: any,
@@ -229,11 +337,31 @@ class RedisStore implements IStore {
 	async get<T = unknown>(key: string): Promise<T | null> {
 		const raw = await this.redis.get(key);
 		if (raw === null || raw === undefined) return null;
-		try {
-			return JSON.parse(raw) as T;
-		} catch {
-			return raw as T;
-		}
+		return deserializeStoreValue<T>(raw);
+	}
+
+	async take<T = unknown>(key: string): Promise<T | null> {
+		const raw = await this.redis.eval(REDIS_TAKE_SCRIPT, 1, key);
+		if (raw === null || raw === undefined || raw === false) return null;
+		return deserializeStoreValue<T>(String(raw));
+	}
+
+	async compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean> {
+		const ttl = options?.ttl ?? options?.ex;
+		const result = await this.redis.eval(
+			REDIS_COMPARE_AND_SET_SCRIPT,
+			1,
+			key,
+			serializeStoreValue(expected),
+			serializeStoreValue(next),
+			ttl && ttl > 0 ? String(ttl) : '',
+		);
+		return Number(result) === 1;
 	}
 
 	async del(...keys: string[]): Promise<number> {
@@ -305,7 +433,7 @@ interface KvEntry {
 	expiresAt?: number;
 }
 
-class DenoKvStore implements IStore {
+class DenoKvStore implements AtomicStoreBackend {
 	private readonly kv: Deno.Kv;
 	private readonly prefix: string;
 	private cleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -364,6 +492,57 @@ class DenoKvStore implements IStore {
 			return null;
 		}
 		return entry.value as T;
+	}
+
+	async take<T = unknown>(key: string): Promise<T | null> {
+		const parsedKey = this.parseKey(key);
+		while (true) {
+			const result = await this.kv.get<KvEntry>(parsedKey);
+			if (result.value === null) return null;
+
+			const expired = result.value.expiresAt !== undefined &&
+				result.value.expiresAt <= Date.now();
+			const committed = await this.kv.atomic()
+				.check(result)
+				.delete(parsedKey)
+				.commit();
+			if (!committed.ok) continue;
+			return expired ? null : result.value.value as T;
+		}
+	}
+
+	async compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean> {
+		const parsedKey = this.parseKey(key);
+		const result = await this.kv.get<KvEntry>(parsedKey);
+		if (result.value === null) return false;
+
+		const now = Date.now();
+		if (
+			(result.value.expiresAt !== undefined &&
+				result.value.expiresAt <= now) ||
+			serializeStoreValue(result.value.value) !==
+				serializeStoreValue(expected)
+		) return false;
+
+		const ttl = options?.ttl ?? options?.ex;
+		const expiresAt = ttl && ttl > 0
+			? now + ttl * 1000
+			: result.value.expiresAt;
+		const setOptions: { expireIn?: number } = {};
+		if (expiresAt !== undefined) {
+			setOptions.expireIn = Math.max(1, expiresAt - now);
+		}
+
+		const committed = await this.kv.atomic()
+			.check(result)
+			.set(parsedKey, { value: next, expiresAt }, setOptions)
+			.commit();
+		return committed.ok;
 	}
 
 	async del(...keys: string[]): Promise<number> {
@@ -497,9 +676,9 @@ class DenoKvStore implements IStore {
 
 // Shared utilities
 /** Restrict a backend to one logical keyspace. */
-class PrefixedStore implements IStore {
+class PrefixedStore implements AtomicStoreBackend {
 	constructor(
-		private readonly backend: IStore,
+		private readonly backend: AtomicStoreBackend,
 		private readonly prefix: string,
 	) {}
 
@@ -517,6 +696,24 @@ class PrefixedStore implements IStore {
 
 	get<T = unknown>(key: string): Promise<T | null> {
 		return this.backend.get<T>(this.key(key));
+	}
+
+	take<T = unknown>(key: string): Promise<T | null> {
+		return this.backend.take<T>(this.key(key));
+	}
+
+	compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean> {
+		return this.backend.compareAndSet(
+			this.key(key),
+			expected,
+			next,
+			options,
+		);
 	}
 
 	del(...keys: string[]): Promise<number> {
@@ -606,6 +803,15 @@ function patternToRegex(pattern: string): RegExp {
 export interface StoreInstance extends IStore {
 	readonly type: StoreType;
 	readonly startedAt: number;
+	/** Atomically read and delete one value. */
+	take<T = unknown>(key: string): Promise<T | null>;
+	/** Replace one value only when it still matches the expected value. */
+	compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean>;
 	getOrSet<T>(
 		key: string,
 		compute: () => Promise<T>,
@@ -627,7 +833,7 @@ class ManagedStore implements StoreInstance {
 
 	constructor(
 		readonly type: StoreType,
-		private readonly backend: IStore,
+		private readonly backend: AtomicStoreBackend,
 	) {}
 
 	set(
@@ -642,6 +848,21 @@ class ManagedStore implements StoreInstance {
 	get<T = unknown>(key: string): Promise<T | null> {
 		this.assertOpen();
 		return this.backend.get<T>(key);
+	}
+
+	take<T = unknown>(key: string): Promise<T | null> {
+		this.assertOpen();
+		return this.backend.take<T>(key);
+	}
+
+	compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean> {
+		this.assertOpen();
+		return this.backend.compareAndSet(key, expected, next, options);
 	}
 
 	del(...keys: string[]): Promise<number> {
@@ -778,7 +999,7 @@ export async function createStore(
 	const fallbackEnabled = cfg.fallbackToMemory !== false;
 	const keyPrefix = normalizeKeyPrefix(cfg.keyPrefix);
 
-	async function tryRedis(): Promise<IStore | null> {
+	async function tryRedis(): Promise<AtomicStoreBackend | null> {
 		if (!cfg.redisClient) {
 			log.warn('Store: mode=redis but no redisClient provided');
 			return null;
@@ -796,7 +1017,7 @@ export async function createStore(
 		}
 	}
 
-	async function tryKv(): Promise<IStore | null> {
+	async function tryKv(): Promise<AtomicStoreBackend | null> {
 		try {
 			const kv = await Deno.openKv(cfg.kvPath ?? undefined);
 			const prefix = cfg.kvPrefix ?? 'store';
@@ -811,12 +1032,12 @@ export async function createStore(
 		}
 	}
 
-	function makeMemory(): IStore {
+	function makeMemory(): AtomicStoreBackend {
 		log.info('Store: In-memory backend initialized');
 		return new MemoryStore();
 	}
 
-	let backend: IStore;
+	let backend: AtomicStoreBackend;
 	let resolvedType: StoreType;
 
 	switch (mode) {
@@ -1053,6 +1274,13 @@ export const store: {
 		options?: StoreSetOptions,
 	): Promise<string>;
 	get<T = unknown>(key: string): Promise<T | null>;
+	take<T = unknown>(key: string): Promise<T | null>;
+	compareAndSet<T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean>;
 	del(...keys: string[]): Promise<number>;
 	exists(...keys: string[]): Promise<number>;
 	expire(key: string, seconds: number): Promise<number>;
@@ -1079,6 +1307,17 @@ export const store: {
 
 	get: <T = unknown>(key: string): Promise<T | null> =>
 		getStore().get(key) as Promise<T | null>,
+
+	take: <T = unknown>(key: string): Promise<T | null> =>
+		getStore().take<T>(key),
+
+	compareAndSet: <T>(
+		key: string,
+		expected: T,
+		next: T,
+		options?: StoreSetOptions,
+	): Promise<boolean> =>
+		getStore().compareAndSet(key, expected, next, options),
 
 	del: (...keys: string[]): Promise<number> => getStore().del(...keys),
 
