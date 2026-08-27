@@ -59,7 +59,8 @@
 		"./device": "./src/utils/device.ts",
 		"./ttl": "./src/utils/ttl.ts",
 		"./response": "./src/utils/response.ts",
-		"./query": "./src/utils/parseQueryParams.ts"
+		"./query": "./src/utils/parseQueryParams.ts",
+		"./cli": "./src/cli/main.ts"
 	},
 	"publish": {
 		"include": [
@@ -81,7 +82,8 @@
 		"lint:fix": "deno lint --fix",
 		"format": "deno fmt --watch",
 		"format:check": "deno fmt --check",
-		"check": "deno check mod.ts src/providers/mod.ts src/providers/*.ts src/lib/http/mod.ts src/lib/openapi/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts",
+		"check": "deno check mod.ts src/providers/mod.ts src/providers/*.ts src/lib/http/mod.ts src/lib/openapi/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts src/cli/main.ts src/cli/plugin.test.ts",
+		"test:cli": "deno test --allow-read --allow-write src/cli/plugin.test.ts",
 		"test": "deno test --unstable-kv --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
 		"dry-run": "deno publish --dry-run --allow-dirty",
 		"publish": "deno publish"
