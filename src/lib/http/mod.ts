@@ -61,6 +61,11 @@ export {
 	DEFAULT_VERSION_HEADER,
 	HTTP_METHODS,
 } from './_internals/constants.ts';
+export { serveStatic } from './static.ts';
+export type {
+	ServeStaticOptions,
+	StaticCacheControlOptions,
+} from './static.ts';
 /** Lifecycle phases reported by {@link ICodexaHttp.getPhase}. */
 export type LifeCyclePhase =
 	| 'idle'
