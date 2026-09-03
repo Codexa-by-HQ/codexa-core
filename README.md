@@ -1,10 +1,21 @@
 # @codexa/core
 
+[![JSR](https://jsr.io/badges/@codexa/core)](https://jsr.io/@codexa/core)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+
 Codexa Core is a modular Deno toolkit for building backend systems with small, focused imports.
 
 The HTTP module is plugin-first: build each capability as an installable plugin, expose only the services you want other plugins to consume, and let Rou3 handle fast route dispatch.
 
+> This README covers every public subpath with runnable examples. For guided walkthroughs, deeper explanations, and worked examples, visit the [official Codexa Core documentation](https://codexa-docs.vercel.app).
+
 ## Install
+
+```bash
+deno add jsr:@codexa/core
+```
+
+Or import directly with a `jsr:` specifier, with no install step first:
 
 ```ts
 import { createApp, definePlugin } from 'jsr:@codexa/core/http';
@@ -29,6 +40,8 @@ For projects using JSR import maps:
 }
 ```
 
+npm, pnpm, Yarn, and Bun install the same package through JSR, see the [installation guide](https://codexa-docs.vercel.app/docs/installation) for every runtime.
+
 ## Imports
 
 Use subpath imports. The root module is intentionally lightweight and does not import every subsystem.
@@ -47,24 +60,27 @@ import { zod } from '@codexa/core/providers/zod';
 
 Available public subpaths:
 
-| Import                   | Purpose                                                 |
-| ------------------------ | ------------------------------------------------------- |
-| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and Rou3      |
-| `@codexa/core/openapi`   | OpenAPI 3.1 generator from HTTP `inspect()` metadata    |
-| `@codexa/core/config`    | Environment, MongoDB, Redis, and storage config helpers |
-| `@codexa/core/bus`       | Local or Redis-backed event bus                         |
-| `@codexa/core/store`     | Memory, Redis, or Deno KV key-value store               |
-| `@codexa/core/cache`     | Namespaced cache on top of store                        |
-| `@codexa/core/storage`   | Local, S3, Cloudinary, and ImageKit storage manager     |
-| `@codexa/core/providers` | Third-party provider namespace exports                  |
-| `@codexa/core/logger`    | Structured logger                                       |
-| `@codexa/core/zod`       | Compatibility alias for the Zod provider                |
-| `@codexa/core/crypto`    | IDs and password hashing                                |
-| `@codexa/core/hash`      | SHA and HMAC helpers                                    |
-| `@codexa/core/device`    | User-agent parsing                                      |
-| `@codexa/core/ttl`       | TTL parsing helpers                                     |
-| `@codexa/core/response`  | Response payload builders                               |
-| `@codexa/core/query`     | Query-string parser                                     |
+| Import                   | Purpose                                                                    |
+| ------------------------ | --------------------------------------------------------------------------- |
+| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and Rou3                        |
+| `@codexa/core/openapi`   | OpenAPI 3.1 generator from HTTP `inspect()` metadata                      |
+| `@codexa/core/config`    | Environment, MongoDB, Redis, and storage config helpers                   |
+| `@codexa/core/bus`       | Local or Redis-backed event bus                                           |
+| `@codexa/core/store`     | Memory, Redis, or Deno KV key-value store                                 |
+| `@codexa/core/cache`     | Namespaced cache on top of store                                          |
+| `@codexa/core/storage`   | Local, S3, Cloudinary, and ImageKit storage manager                       |
+| `@codexa/core/providers` | Third-party provider namespace exports                                    |
+| `@codexa/core/logger`    | Structured logger                                                         |
+| `@codexa/core/zod`       | Compatibility alias for the Zod provider                                  |
+| `@codexa/core/crypto`    | IDs and password hashing                                                  |
+| `@codexa/core/hash`      | SHA and HMAC helpers                                                      |
+| `@codexa/core/device`    | User-agent parsing                                                        |
+| `@codexa/core/ttl`       | TTL parsing helpers                                                       |
+| `@codexa/core/response`  | Response payload builders                                                 |
+| `@codexa/core/query`     | Query-string parser                                                       |
+| `@codexa/core/cli`       | `codexa plugin` CLI, installs plugin source from a pinned Git ref         |
+
+For a use-case-first tour of the same modules, with diagrams and full explanations, see [Full documentation](https://codexa-docs.vercel.app) below.
 
 ## Provider Re-exports
 
@@ -151,7 +167,7 @@ import { definePlugin } from '@codexa/core/http';
 export const usersPlugin = definePlugin({
 	name: 'users',
 	metadata: {
-		license: 'GPL-3.0-or-later',
+		license: 'MIT',
 		description: 'User profile API',
 		tags: ['users'],
 	},
@@ -506,6 +522,8 @@ await app.listen({
 ```
 
 `whenStopped()` resolves after shutdown finishes. It is useful when another signal calls `shutdown()` and your main function wants to wait for cleanup.
+
+`dispatch` is a plain `(Request) => Promise<Response>` function, so the same app runs unchanged on Deno, Bun, Cloudflare Workers, and Node.js (with a small Fetch API adapter such as `@hono/node-server`).
 
 ## Inspection And Tags
 
@@ -957,6 +975,68 @@ const body = createSuccessResponse({ id });
 const query = parseQueryParams('a=1&a=2');
 ```
 
+## CLI
+
+`@codexa/core/cli` installs a plugin's actual source code into your project, copied from a GitHub repository at an exact, pinned commit or tag. This is different from `app.install(plugin, config)`, which registers an already-imported plugin object into a running app, the CLI is what gets that plugin's code onto disk in the first place.
+
+Install it globally, or scoped to one project as a `deno task`:
+
+```bash
+# Global install
+deno install --global --allow-read --allow-write --allow-run=git,deno -n codexa jsr:@codexa/core/cli
+```
+
+```json title="deno.json"
+{
+	"tasks": {
+		"codexa": "deno run --allow-read --allow-write --allow-run=git,deno jsr:@codexa/core/cli"
+	}
+}
+```
+
+`--allow-run=git,deno` scopes the permission to exactly the two subprocesses the CLI runs: `git` to fetch the plugin's source, `deno` for the `deno install`/`deno check` steps below.
+
+```bash
+codexa plugin add https://github.com/<owner>/<repo> --ref v1.0.0
+codexa plugin list
+```
+
+- `<github-url>` must be a public `https://github.com/<owner>/<repo>` URL.
+- `--ref` is required, there is no "latest" install, every install pins an exact tag or commit.
+- `--project <directory>` points at the host project, defaults to the current directory.
+
+What happens during install:
+
+1. A shallow, single-ref `git` clone of the repository at exactly that ref.
+2. The repository's `plugin.json` manifest is validated, its `name`, `version`, and `entrypoint` must match the plugin's own `deno.json` exactly.
+3. The plugin's source is copied into `plugins/<id>` atomically, `.git` is excluded, symlinks are rejected, and the copy stops past 10,000 files or 100 MB, whichever comes first.
+4. Your project's `deno.json` gains a workspace member (`"workspace": ["./plugins/<id>"]`).
+5. `deno install` and `deno check` run against the new plugin.
+6. The install is recorded in `.codexa/plugins.json`.
+
+If any step fails, everything already changed, `deno.json`, `deno.lock`, `.codexa/plugins.json`, and any copied files, is rolled back to exactly what it was before the command ran.
+
+Every installable plugin repository needs a `plugin.json` manifest at its root:
+
+| Field         | Required | Description                                                              |
+| ------------- | -------- | -------------------------------------------------------------------------- |
+| `schemaVersion` | Yes    | Manifest format version.                                                 |
+| `id`          | Yes      | Folder name the plugin installs under, `plugins/<id>`. Lowercase, hyphens.  |
+| `name`        | Yes      | `@scope/name` format, must match `name` in the plugin's own `deno.json`.   |
+| `version`     | Yes      | Semantic version, must match `version` in the plugin's own `deno.json`.    |
+| `entrypoint`  | Yes      | Must match the `"."` entry of `exports` in the plugin's own `deno.json`.   |
+| `setup`       | No       | Optional path to a setup/bootstrap script.                               |
+| `codexaCore`  | No       | Optional semver range this plugin targets, e.g. `">=1.0.5 <2.0.0"`.       |
+
+After installing, wire the plugin into your running app the normal way:
+
+```ts title="main.ts"
+import { installOAuthPlugin } from './plugins/oauth/plugin.ts';
+
+const app = createApp();
+await installOAuthPlugin(app, { /* ... */ });
+```
+
 ## Release Notes For HTTP Users
 
 - The HTTP framework uses Deno and Rou3 with factory-based APIs.
@@ -966,3 +1046,12 @@ const query = parseQueryParams('a=1&a=2');
 - Cross-plugin access must go through explicitly exposed services and declared `dependsOn`.
 - `ctx.state` is plugin-scoped request state. `ctx.locals` is route-inline middleware state.
 - Native responses and streams are never exposed to hooks in a way that can consume the body.
+- `@codexa/core/cli` installs plugin source from a pinned Git ref, with atomic copy and full rollback on failure.
+
+## Documentation
+
+This README covers the full public API surface with runnable examples. For a guided, use-case-first walkthrough, diagrams, and expanded explanations of every module, see the [official Codexa Core documentation](https://codexa-docs.vercel.app).
+
+## License
+
+MIT © Codexa-by-HQ
