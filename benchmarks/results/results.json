@@ -1,0 +1,222 @@
+{
+  "generatedAt": "2026-09-03T20:13:32.268Z",
+  "config": {
+    "connections": 50,
+    "duration": 10,
+    "pipelining": 1,
+    "warmup": 3
+  },
+  "env": {
+    "os": "Windows_NT 10.0.19045 (x64)",
+    "cpu": "Intel(R) Core(TM) i7-7500U CPU @ 2.70GHz",
+    "cores": 4
+  },
+  "legend": {
+    "node": "24.14.0",
+    "deno": "2.9.6 (stable, release, x86_64-pc-windows-msvc)",
+    "frameworks": {
+      "codexa": "jsr:@codexa/core@latest",
+      "deno": "Deno.serve + Zod",
+      "oak": "jsr:@oak/oak@^17",
+      "express": "express@^5.1.0",
+      "hono": "jsr:@hono/hono@^4"
+    }
+  },
+  "endpoints": [
+    "POST /users",
+    "GET /hello",
+    "GET /users/:id"
+  ],
+  "endpointKeys": [
+    "users-post",
+    "hello",
+    "users-get"
+  ],
+  "results": [
+    {
+      "key": "codexa",
+      "label": "Codexa Core",
+      "version": "jsr:@codexa/core@latest",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 18731.8,
+          "requestsPerSecMax": 25268,
+          "latencyAvgMs": 2.19,
+          "latencyP99Ms": 16,
+          "throughputAvgMBs": 2.394,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 187314
+        },
+        "users-get": {
+          "requestsPerSecAvg": 14758.2,
+          "requestsPerSecMax": 25429,
+          "latencyAvgMs": 2.88,
+          "latencyP99Ms": 22,
+          "throughputAvgMBs": 1.9,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 147569
+        },
+        "users-post": {
+          "requestsPerSecAvg": 19937.6,
+          "requestsPerSecMax": 21720,
+          "latencyAvgMs": 2.1,
+          "latencyP99Ms": 10,
+          "throughputAvgMBs": 4.202,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 199377
+        }
+      }
+    },
+    {
+      "key": "deno",
+      "label": "Deno (no framework)",
+      "version": "Deno.serve + Zod",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 23982.4,
+          "requestsPerSecMax": 27236,
+          "latencyAvgMs": 1.59,
+          "latencyP99Ms": 7,
+          "throughputAvgMBs": 2.722,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 239846
+        },
+        "users-get": {
+          "requestsPerSecAvg": 26107.2,
+          "requestsPerSecMax": 27184,
+          "latencyAvgMs": 1.41,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 2.988,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 261074
+        },
+        "users-post": {
+          "requestsPerSecAvg": 19056.41,
+          "requestsPerSecMax": 24235,
+          "latencyAvgMs": 2.14,
+          "latencyP99Ms": 14,
+          "throughputAvgMBs": 3.744,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 190547
+        }
+      }
+    },
+    {
+      "key": "oak",
+      "label": "Oak (Deno)",
+      "version": "jsr:@oak/oak@^17",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 17041.64,
+          "requestsPerSecMax": 23284,
+          "latencyAvgMs": 2.54,
+          "latencyP99Ms": 14,
+          "throughputAvgMBs": 2.178,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 187455
+        },
+        "users-get": {
+          "requestsPerSecAvg": 16635.28,
+          "requestsPerSecMax": 22699,
+          "latencyAvgMs": 2.65,
+          "latencyP99Ms": 14,
+          "throughputAvgMBs": 2.142,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 182987
+        },
+        "users-post": {
+          "requestsPerSecAvg": 15945.46,
+          "requestsPerSecMax": 17581,
+          "latencyAvgMs": 2.52,
+          "latencyP99Ms": 8,
+          "throughputAvgMBs": 3.361,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 175391
+        }
+      }
+    },
+    {
+      "key": "express",
+      "label": "Express (Node)",
+      "version": "express@^5.1.0",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 9378.91,
+          "requestsPerSecMax": 11103,
+          "latencyAvgMs": 4.86,
+          "latencyP99Ms": 21,
+          "throughputAvgMBs": 2.191,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 103156
+        },
+        "users-get": {
+          "requestsPerSecAvg": 9735.46,
+          "requestsPerSecMax": 12106,
+          "latencyAvgMs": 4.65,
+          "latencyP99Ms": 17,
+          "throughputAvgMBs": 2.284,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 107079
+        },
+        "users-post": {
+          "requestsPerSecAvg": 8660.19,
+          "requestsPerSecMax": 9663,
+          "latencyAvgMs": 5.28,
+          "latencyP99Ms": 13,
+          "throughputAvgMBs": 2.75,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 95262
+        }
+      }
+    },
+    {
+      "key": "hono",
+      "label": "Hono (Deno)",
+      "version": "jsr:@hono/hono@^4",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 23600.4,
+          "requestsPerSecMax": 26834,
+          "latencyAvgMs": 1.61,
+          "latencyP99Ms": 6,
+          "throughputAvgMBs": 2.678,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 235989
+        },
+        "users-get": {
+          "requestsPerSecAvg": 24020.8,
+          "requestsPerSecMax": 26278,
+          "latencyAvgMs": 1.55,
+          "latencyP99Ms": 5,
+          "throughputAvgMBs": 2.749,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 240221
+        },
+        "users-post": {
+          "requestsPerSecAvg": 22857.46,
+          "requestsPerSecMax": 27247,
+          "latencyAvgMs": 1.61,
+          "latencyP99Ms": 6,
+          "throughputAvgMBs": 4.491,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 251431
+        }
+      }
+    }
+  ]
+}

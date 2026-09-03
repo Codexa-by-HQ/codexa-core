@@ -1,0 +1,13 @@
+{
+	"name": "codexa-core-benchmarks",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"bench": "node run.mjs"
+	},
+	"dependencies": {
+		"autocannon": "^7.15.0",
+		"express": "^5.1.0",
+		"zod": "^4.4.3"
+	}
+}
