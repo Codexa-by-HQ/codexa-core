@@ -8,17 +8,6 @@ Machine: Intel(R) Core(TM) i7-7500U CPU @ 2.70GHz, 4 cores, Windows_NT 10.0.1904
 
 These numbers are from one developer machine, not a dedicated benchmark server. Treat them as directional, not authoritative, and reproduce with the harness described in the docs before relying on them.
 
-## POST /users
-
-| Framework | req/s (median of 3) | latency avg (ms) | latency p99 (ms) |
-| --- | --- | --- | --- |
-| Codexa Core | 17063 | 2.52 | 12.00 |
-| Deno (no framework) | 26920 | 1.41 | 4.00 |
-| Oak (Deno) | 14575 | 2.83 | 6.00 |
-| Express (Node) | 9093 | 4.98 | 9.00 |
-| Hono (Deno) | 23912 | 1.52 | 5.00 |
-| Thunder (Deno) | 22283 | 1.64 | 4.00 |
-
 ## GET /hello
 
 | Framework | req/s (median of 3) | latency avg (ms) | latency p99 (ms) |
@@ -40,3 +29,14 @@ These numbers are from one developer machine, not a dedicated benchmark server. 
 | Express (Node) | 12027 | 3.62 | 7.00 |
 | Hono (Deno) | 24528 | 1.56 | 5.00 |
 | Thunder (Deno) | 25350 | 1.48 | 4.00 |
+
+## POST /users
+
+| Framework | req/s (median of 3) | latency avg (ms) | latency p99 (ms) |
+| --- | --- | --- | --- |
+| Codexa Core | 17063 | 2.52 | 12.00 |
+| Deno (no framework) | 26920 | 1.41 | 4.00 |
+| Oak (Deno) | 14575 | 2.83 | 6.00 |
+| Express (Node) | 9093 | 4.98 | 9.00 |
+| Hono (Deno) | 23912 | 1.52 | 5.00 |
+| Thunder (Deno) | 22283 | 1.64 | 4.00 |
