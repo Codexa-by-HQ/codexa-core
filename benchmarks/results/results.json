@@ -24,14 +24,14 @@
     }
   },
   "endpoints": [
-    "POST /users",
     "GET /hello",
-    "GET /users/:id"
+    "GET /users/:id",
+    "POST /users"
   ],
   "endpointKeys": [
-    "users-post",
     "hello",
-    "users-get"
+    "users-get",
+    "users-post"
   ],
   "results": [
     {
