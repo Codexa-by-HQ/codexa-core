@@ -1050,7 +1050,7 @@ await installOAuthPlugin(app, { /* ... */ });
 
 ## Benchmarks
 
-`GET /hello`, `GET /users/:id`, and `POST /users` with a validated Zod body, load tested against raw `Deno.serve`, Oak, Hono, Express, and Thunder, loaded from the published `@codexa/core` package itself, not local source. Codexa Core lands in the same tier as Hono and Thunder on both GET routes, and clearly ahead of Oak and Express on all three. Full methodology, chart, and reproduction steps: [codexa-docs.vercel.app/docs/benchmarks](https://codexa-docs.vercel.app/docs/benchmarks). The raw numbers behind that page ship with this package at `benchmarks/results/results.json` and `results.md`.
+`GET /hello`, `GET /users/:id`, and `POST /users` with a validated Zod body, load tested against raw `Deno.serve`, Oak, Hono, and Express, loaded from the published `@codexa/core` package itself, not local source. Codexa Core lands in the same tier as Hono on both GET routes, and clearly ahead of Oak and Express on all three. Full methodology, chart, and reproduction steps: [codexa-docs.vercel.app/docs/benchmarks](https://codexa-docs.vercel.app/docs/benchmarks). The raw numbers behind that page ship with this package at `benchmarks/results/results.json` and `results.md`.
 
 ## Documentation
 
