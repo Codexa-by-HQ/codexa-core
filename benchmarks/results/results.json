@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T06:13:58.116Z",
+  "generatedAt": "2026-09-07T05:27:20.884Z",
   "config": {
     "connections": 50,
     "duration": 10,
@@ -15,7 +15,7 @@
     "node": "24.14.0",
     "deno": "2.9.6 (stable, release, x86_64-pc-windows-msvc)",
     "frameworks": {
-      "codexa": "jsr:@codexa/core@latest",
+      "codexa": "jsr:@codexa/core@1.0.7",
       "deno": "Deno.serve + Zod",
       "oak": "jsr:@oak/oak@^17",
       "express": "express@^5.1.0",
@@ -37,37 +37,37 @@
     {
       "key": "codexa",
       "label": "Codexa Core",
-      "version": "jsr:@codexa/core@latest",
+      "version": "jsr:@codexa/core@1.0.7",
       "endpoints": {
         "users-post": {
-          "requestsPerSecAvg": 17208,
-          "requestsPerSecMax": 21630,
-          "latencyAvgMs": 2.54,
-          "latencyP99Ms": 13,
-          "throughputAvgMBs": 3.627,
+          "requestsPerSecAvg": 17062.8,
+          "requestsPerSecMax": 19824,
+          "latencyAvgMs": 2.52,
+          "latencyP99Ms": 12,
+          "throughputAvgMBs": 3.596,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 172073
+          "totalRequests": 183055
         },
         "hello": {
-          "requestsPerSecAvg": 12256.4,
-          "requestsPerSecMax": 22444,
-          "latencyAvgMs": 3.58,
-          "latencyP99Ms": 32,
-          "throughputAvgMBs": 1.566,
+          "requestsPerSecAvg": 25133.82,
+          "requestsPerSecMax": 26214,
+          "latencyAvgMs": 1.49,
+          "latencyP99Ms": 8,
+          "throughputAvgMBs": 3.212,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 122558
+          "totalRequests": 266068
         },
         "users-get": {
-          "requestsPerSecAvg": 9415.4,
-          "requestsPerSecMax": 13872,
-          "latencyAvgMs": 4.81,
-          "latencyP99Ms": 36,
-          "throughputAvgMBs": 1.212,
+          "requestsPerSecAvg": 23832,
+          "requestsPerSecMax": 25177,
+          "latencyAvgMs": 1.52,
+          "latencyP99Ms": 9,
+          "throughputAvgMBs": 3.068,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 94140
+          "totalRequests": 242351
         }
       }
     },
@@ -77,34 +77,34 @@
       "version": "Deno.serve + Zod",
       "endpoints": {
         "users-post": {
-          "requestsPerSecAvg": 17798.19,
-          "requestsPerSecMax": 24415,
-          "latencyAvgMs": 2.35,
-          "latencyP99Ms": 12,
-          "throughputAvgMBs": 3.497,
+          "requestsPerSecAvg": 26920,
+          "requestsPerSecMax": 28132,
+          "latencyAvgMs": 1.41,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 5.288,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 195777
+          "totalRequests": 285576
         },
         "hello": {
-          "requestsPerSecAvg": 23390.4,
-          "requestsPerSecMax": 27524,
-          "latencyAvgMs": 1.67,
-          "latencyP99Ms": 7,
-          "throughputAvgMBs": 2.655,
+          "requestsPerSecAvg": 29212.8,
+          "requestsPerSecMax": 31645,
+          "latencyAvgMs": 1.26,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 3.315,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 233892
+          "totalRequests": 294123
         },
         "users-get": {
-          "requestsPerSecAvg": 24366.4,
-          "requestsPerSecMax": 27117,
-          "latencyAvgMs": 1.59,
-          "latencyP99Ms": 6,
-          "throughputAvgMBs": 2.788,
+          "requestsPerSecAvg": 28460.8,
+          "requestsPerSecMax": 31007,
+          "latencyAvgMs": 1.29,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 3.257,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 243668
+          "totalRequests": 286205
         }
       }
     },
@@ -114,34 +114,34 @@
       "version": "jsr:@oak/oak@^17",
       "endpoints": {
         "users-post": {
-          "requestsPerSecAvg": 8464.3,
-          "requestsPerSecMax": 13226,
-          "latencyAvgMs": 5.37,
-          "latencyP99Ms": 34,
-          "throughputAvgMBs": 1.784,
+          "requestsPerSecAvg": 14574.91,
+          "requestsPerSecMax": 16423,
+          "latencyAvgMs": 2.83,
+          "latencyP99Ms": 6,
+          "throughputAvgMBs": 3.071,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 84652
+          "totalRequests": 153301
         },
         "hello": {
-          "requestsPerSecAvg": 5704.8,
-          "requestsPerSecMax": 7795,
-          "latencyAvgMs": 8.32,
-          "latencyP99Ms": 61,
-          "throughputAvgMBs": 0.729,
+          "requestsPerSecAvg": 20972.37,
+          "requestsPerSecMax": 22602,
+          "latencyAvgMs": 2.01,
+          "latencyP99Ms": 5,
+          "throughputAvgMBs": 2.68,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 57043
+          "totalRequests": 223163
         },
         "users-get": {
-          "requestsPerSecAvg": 10124.55,
-          "requestsPerSecMax": 17219,
-          "latencyAvgMs": 4.48,
-          "latencyP99Ms": 20,
-          "throughputAvgMBs": 1.303,
+          "requestsPerSecAvg": 19962.91,
+          "requestsPerSecMax": 22113,
+          "latencyAvgMs": 2.12,
+          "latencyP99Ms": 5,
+          "throughputAvgMBs": 2.57,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 111363
+          "totalRequests": 212920
         }
       }
     },
@@ -151,34 +151,34 @@
       "version": "express@^5.1.0",
       "endpoints": {
         "users-post": {
-          "requestsPerSecAvg": 6598.4,
-          "requestsPerSecMax": 9941,
-          "latencyAvgMs": 7.08,
-          "latencyP99Ms": 41,
-          "throughputAvgMBs": 2.095,
+          "requestsPerSecAvg": 9093.46,
+          "requestsPerSecMax": 9887,
+          "latencyAvgMs": 4.98,
+          "latencyP99Ms": 9,
+          "throughputAvgMBs": 2.888,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 65980
+          "totalRequests": 98030
         },
         "hello": {
-          "requestsPerSecAvg": 10390.37,
-          "requestsPerSecMax": 13431,
-          "latencyAvgMs": 4.34,
-          "latencyP99Ms": 15,
-          "throughputAvgMBs": 2.428,
+          "requestsPerSecAvg": 13297.1,
+          "requestsPerSecMax": 13442,
+          "latencyAvgMs": 3.34,
+          "latencyP99Ms": 6,
+          "throughputAvgMBs": 3.106,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 114296
+          "totalRequests": 135457
         },
         "users-get": {
-          "requestsPerSecAvg": 6829.5,
-          "requestsPerSecMax": 11432,
-          "latencyAvgMs": 6.76,
-          "latencyP99Ms": 45,
-          "throughputAvgMBs": 1.602,
+          "requestsPerSecAvg": 12027.28,
+          "requestsPerSecMax": 12670,
+          "latencyAvgMs": 3.62,
+          "latencyP99Ms": 7,
+          "throughputAvgMBs": 2.821,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 68281
+          "totalRequests": 130512
         }
       }
     },
@@ -188,34 +188,34 @@
       "version": "jsr:@hono/hono@^4",
       "endpoints": {
         "users-post": {
-          "requestsPerSecAvg": 15061.82,
-          "requestsPerSecMax": 23330,
-          "latencyAvgMs": 2.79,
-          "latencyP99Ms": 17,
-          "throughputAvgMBs": 2.959,
+          "requestsPerSecAvg": 23912,
+          "requestsPerSecMax": 27097,
+          "latencyAvgMs": 1.52,
+          "latencyP99Ms": 5,
+          "throughputAvgMBs": 4.697,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 165667
+          "totalRequests": 264723
         },
         "hello": {
-          "requestsPerSecAvg": 13348.2,
-          "requestsPerSecMax": 25878,
-          "latencyAvgMs": 3.27,
-          "latencyP99Ms": 31,
-          "throughputAvgMBs": 1.515,
+          "requestsPerSecAvg": 28281.6,
+          "requestsPerSecMax": 29807,
+          "latencyAvgMs": 1.32,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 3.21,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 133484
+          "totalRequests": 258838
         },
         "users-get": {
-          "requestsPerSecAvg": 20388.6,
-          "requestsPerSecMax": 28075,
-          "latencyAvgMs": 1.96,
-          "latencyP99Ms": 12,
-          "throughputAvgMBs": 2.333,
+          "requestsPerSecAvg": 24528,
+          "requestsPerSecMax": 28068,
+          "latencyAvgMs": 1.56,
+          "latencyP99Ms": 5,
+          "throughputAvgMBs": 2.807,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 203879
+          "totalRequests": 261527
         }
       }
     },
@@ -225,34 +225,34 @@
       "version": "github:Huruf-Tech/thunder",
       "endpoints": {
         "users-post": {
-          "requestsPerSecAvg": 17385.2,
-          "requestsPerSecMax": 22280,
-          "latencyAvgMs": 2.32,
-          "latencyP99Ms": 11,
-          "throughputAvgMBs": 3.415,
+          "requestsPerSecAvg": 22283.2,
+          "requestsPerSecMax": 23553,
+          "latencyAvgMs": 1.64,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 4.377,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 173841
+          "totalRequests": 238615
         },
         "hello": {
-          "requestsPerSecAvg": 21512,
-          "requestsPerSecMax": 24770,
-          "latencyAvgMs": 1.83,
-          "latencyP99Ms": 8,
-          "throughputAvgMBs": 2.442,
+          "requestsPerSecAvg": 25489.6,
+          "requestsPerSecMax": 28630,
+          "latencyAvgMs": 1.47,
+          "latencyP99Ms": 3,
+          "throughputAvgMBs": 2.893,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 215129
+          "totalRequests": 257674
         },
         "users-get": {
-          "requestsPerSecAvg": 18676,
-          "requestsPerSecMax": 26360,
-          "latencyAvgMs": 2.18,
-          "latencyP99Ms": 12,
-          "throughputAvgMBs": 2.137,
+          "requestsPerSecAvg": 25350.4,
+          "requestsPerSecMax": 27310,
+          "latencyAvgMs": 1.48,
+          "latencyP99Ms": 4,
+          "throughputAvgMBs": 2.902,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 186735
+          "totalRequests": 235071
         }
       }
     }
