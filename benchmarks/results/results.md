@@ -1,6 +1,6 @@
 # Codexa Core benchmark results
 
-Generated: 2026-09-03T20:13:32.268Z
+Generated: 2026-09-04T06:13:58.116Z
 
 Load: 50 connections, 10s duration, pipelining 1, 3s warmup (discarded) per endpoint per framework.
 
@@ -12,28 +12,31 @@ These numbers are from one developer machine, not a dedicated benchmark server. 
 
 | Framework | req/s (avg) | latency avg (ms) | latency p99 (ms) |
 | --- | --- | --- | --- |
-| Codexa Core | 19938 | 2.10 | 10.00 |
-| Deno (no framework) | 19056 | 2.14 | 14.00 |
-| Oak (Deno) | 15945 | 2.52 | 8.00 |
-| Express (Node) | 8660 | 5.28 | 13.00 |
-| Hono (Deno) | 22857 | 1.61 | 6.00 |
+| Codexa Core | 17208 | 2.54 | 13.00 |
+| Deno (no framework) | 17798 | 2.35 | 12.00 |
+| Oak (Deno) | 8464 | 5.37 | 34.00 |
+| Express (Node) | 6598 | 7.08 | 41.00 |
+| Hono (Deno) | 15062 | 2.79 | 17.00 |
+| Thunder (Deno) | 17385 | 2.32 | 11.00 |
 
 ## GET /hello
 
 | Framework | req/s (avg) | latency avg (ms) | latency p99 (ms) |
 | --- | --- | --- | --- |
-| Codexa Core | 18732 | 2.19 | 16.00 |
-| Deno (no framework) | 23982 | 1.59 | 7.00 |
-| Oak (Deno) | 17042 | 2.54 | 14.00 |
-| Express (Node) | 9379 | 4.86 | 21.00 |
-| Hono (Deno) | 23600 | 1.61 | 6.00 |
+| Codexa Core | 12256 | 3.58 | 32.00 |
+| Deno (no framework) | 23390 | 1.67 | 7.00 |
+| Oak (Deno) | 5705 | 8.32 | 61.00 |
+| Express (Node) | 10390 | 4.34 | 15.00 |
+| Hono (Deno) | 13348 | 3.27 | 31.00 |
+| Thunder (Deno) | 21512 | 1.83 | 8.00 |
 
 ## GET /users/:id
 
 | Framework | req/s (avg) | latency avg (ms) | latency p99 (ms) |
 | --- | --- | --- | --- |
-| Codexa Core | 14758 | 2.88 | 22.00 |
-| Deno (no framework) | 26107 | 1.41 | 4.00 |
-| Oak (Deno) | 16635 | 2.65 | 14.00 |
-| Express (Node) | 9735 | 4.65 | 17.00 |
-| Hono (Deno) | 24021 | 1.55 | 5.00 |
+| Codexa Core | 9415 | 4.81 | 36.00 |
+| Deno (no framework) | 24366 | 1.59 | 6.00 |
+| Oak (Deno) | 10125 | 4.48 | 20.00 |
+| Express (Node) | 6830 | 6.76 | 45.00 |
+| Hono (Deno) | 20389 | 1.96 | 12.00 |
+| Thunder (Deno) | 18676 | 2.18 | 12.00 |

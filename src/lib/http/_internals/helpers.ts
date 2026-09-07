@@ -1,5 +1,9 @@
 import { createLogger } from '../../../utils/logger.ts';
-import { DEFAULT_VERSION_HEADER, HTTP_METHODS } from './constants.ts';
+import {
+	DEFAULT_VERSION_HEADER,
+	HTTP_METHOD_SET,
+	HTTP_METHODS,
+} from './constants.ts';
 import type {
 	AppMiddlewareFn,
 	Context,
@@ -181,7 +185,7 @@ export function normalizeMethod(method: string): HttpMethod {
 
 export function tryNormalizeMethod(method: string): HttpMethod | undefined {
 	const normalized = method.toUpperCase();
-	return HTTP_METHODS.includes(normalized as HttpMethod)
+	return HTTP_METHOD_SET.has(normalized)
 		? normalized as HttpMethod
 		: undefined;
 }
@@ -614,12 +618,18 @@ export function routeToHookSnapshot(route: RouteMeta): HookRouteSnapshot {
 	});
 }
 
+const EMPTY_PARAMS: RouteParams = Object.freeze({});
+
 export function toParams(value: unknown): RouteParams {
 	if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-		return Object.freeze({});
+		return EMPTY_PARAMS;
+	}
+	const entries = Object.entries(value);
+	if (entries.length === 0) {
+		return EMPTY_PARAMS;
 	}
 	const params: Record<string, string> = {};
-	for (const [key, item] of Object.entries(value)) {
+	for (const [key, item] of entries) {
 		params[key] = String(item);
 	}
 	return Object.freeze(params);
@@ -671,20 +681,54 @@ export function sortByPriorityAndOrder<
 	});
 }
 
+function createBaseState(): Readonly<StateShape> {
+	return Object.freeze({
+		requestId: createRequestId(),
+		startTime: Date.now(),
+	});
+}
+
+const EMPTY_LOCALS: Readonly<StateShape> = Object.freeze({});
+
+// Response helpers close over nothing request-specific, so one shared
+// instance of each can be reused across every request instead of
+// allocating fresh closures per call.
+function ctxJson(data: unknown, init?: ResponseInit): Response {
+	return createJsonResponse(data, init);
+}
+function ctxText(data: string, init?: ResponseInit): Response {
+	return createTextResponse(data, init);
+}
+function ctxHtml(data: string, init?: ResponseInit): Response {
+	return createHtmlResponse(data, init);
+}
+function ctxMarkdown(content: string, init?: ResponseInit): Response {
+	return createMarkdownResponse(content, init);
+}
+function ctxRedirect(url: string, status?: 301 | 302 | 307 | 308): Response {
+	return createRedirectResponse(url, status);
+}
+function ctxStream(
+	body: ReadableStream<Uint8Array>,
+	init?: ResponseInit,
+): Response {
+	return createStreamResponse(body, init);
+}
+function ctxSend(body?: BodyInit | null, init?: ResponseInit): Response {
+	return createSendResponse(body, init);
+}
+
 export function buildCtx<S extends StateShape>(
 	request: Request,
 	params: RouteParams,
+	requestUrl?: URL,
 ): BuiltContext<S> {
-	const url = new URL(request.url);
-	const baseState: StateShape = {
-		requestId: createRequestId(),
-		startTime: Date.now(),
-	};
+	const url = requestUrl ?? new URL(request.url);
 	const stateRef: { current: Readonly<StateShape> } = {
-		current: freezeState(baseState),
+		current: createBaseState(),
 	};
 	const localsRef: { current: Readonly<StateShape> } = {
-		current: Object.freeze({}),
+		current: EMPTY_LOCALS,
 	};
 
 	const ctx: Context<S, RouteParams, StateShape> = {
@@ -699,30 +743,13 @@ export function buildCtx<S extends StateShape>(
 		get locals() {
 			return localsRef.current;
 		},
-		json(data: unknown, init?: ResponseInit): Response {
-			return createJsonResponse(data, init);
-		},
-		text(data: string, init?: ResponseInit): Response {
-			return createTextResponse(data, init);
-		},
-		html(data: string, init?: ResponseInit): Response {
-			return createHtmlResponse(data, init);
-		},
-		markdown(content: string, init?: ResponseInit): Response {
-			return createMarkdownResponse(content, init);
-		},
-		redirect(url: string, status?: 301 | 302 | 307 | 308): Response {
-			return createRedirectResponse(url, status);
-		},
-		stream(
-			body: ReadableStream<Uint8Array>,
-			init?: ResponseInit,
-		): Response {
-			return createStreamResponse(body, init);
-		},
-		send(body?: BodyInit | null, init?: ResponseInit): Response {
-			return createSendResponse(body, init);
-		},
+		json: ctxJson,
+		text: ctxText,
+		html: ctxHtml,
+		markdown: ctxMarkdown,
+		redirect: ctxRedirect,
+		stream: ctxStream,
+		send: ctxSend,
 	};
 
 	const inject = (

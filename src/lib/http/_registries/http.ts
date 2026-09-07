@@ -408,7 +408,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 				return response;
 			}
 			matchedRoute = route.meta;
-			built = buildCtx<StateShape>(request, toParams(found.params));
+			built = buildCtx<StateShape>(request, toParams(found.params), url);
 			const response = await this.#executeCommittedRoute(route, built);
 			await this.#emitRequestHooks(
 				built,
