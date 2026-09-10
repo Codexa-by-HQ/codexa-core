@@ -24,6 +24,7 @@ export const CODEXA_CORE_VERSION = '1.0.7';
 export type CodexaCoreModule =
 	| 'http'
 	| 'openapi'
+	| 'sdk'
 	| 'config'
 	| 'bus'
 	| 'store'
@@ -43,6 +44,7 @@ export type CodexaCoreModule =
 export const CODEXA_CORE_MODULES: readonly CodexaCoreModule[] = Object.freeze([
 	'http',
 	'openapi',
+	'sdk',
 	'config',
 	'bus',
 	'store',

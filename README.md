@@ -53,32 +53,35 @@ import { env } from '@codexa/core/config';
 import { createEventBus } from '@codexa/core/bus';
 import { createStore, createStoreRegistry } from '@codexa/core/store';
 import { createCache } from '@codexa/core/cache';
-import { createStorageManager, createStorageRegistry } from '@codexa/core/storage';
+import {
+	createStorageManager,
+	createStorageRegistry,
+} from '@codexa/core/storage';
 import { createLogger } from '@codexa/core/logger';
 import { zod } from '@codexa/core/providers/zod';
 ```
 
 Available public subpaths:
 
-| Import                   | Purpose                                                                    |
-| ------------------------ | --------------------------------------------------------------------------- |
-| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and Rou3                        |
-| `@codexa/core/openapi`   | OpenAPI 3.1 generator from HTTP `inspect()` metadata                      |
-| `@codexa/core/config`    | Environment, MongoDB, Redis, and storage config helpers                   |
-| `@codexa/core/bus`       | Local or Redis-backed event bus                                           |
-| `@codexa/core/store`     | Memory, Redis, or Deno KV key-value store                                 |
-| `@codexa/core/cache`     | Namespaced cache on top of store                                          |
-| `@codexa/core/storage`   | Local, S3, Cloudinary, and ImageKit storage manager                       |
-| `@codexa/core/providers` | Third-party provider namespace exports                                    |
-| `@codexa/core/logger`    | Structured logger                                                         |
-| `@codexa/core/zod`       | Compatibility alias for the Zod provider                                  |
-| `@codexa/core/crypto`    | IDs and password hashing                                                  |
-| `@codexa/core/hash`      | SHA and HMAC helpers                                                      |
-| `@codexa/core/device`    | User-agent parsing                                                        |
-| `@codexa/core/ttl`       | TTL parsing helpers                                                       |
-| `@codexa/core/response`  | Response payload builders                                                 |
-| `@codexa/core/query`     | Query-string parser                                                       |
-| `@codexa/core/cli`       | `codexa plugin` CLI, installs plugin source from a pinned Git ref         |
+| Import                   | Purpose                                                           |
+| ------------------------ | ----------------------------------------------------------------- |
+| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and Rou3                |
+| `@codexa/core/openapi`   | OpenAPI 3.1 generator from HTTP `inspect()` metadata              |
+| `@codexa/core/config`    | Environment, MongoDB, Redis, and storage config helpers           |
+| `@codexa/core/bus`       | Local or Redis-backed event bus                                   |
+| `@codexa/core/store`     | Memory, Redis, or Deno KV key-value store                         |
+| `@codexa/core/cache`     | Namespaced cache on top of store                                  |
+| `@codexa/core/storage`   | Local, S3, Cloudinary, and ImageKit storage manager               |
+| `@codexa/core/providers` | Third-party provider namespace exports                            |
+| `@codexa/core/logger`    | Structured logger                                                 |
+| `@codexa/core/zod`       | Compatibility alias for the Zod provider                          |
+| `@codexa/core/crypto`    | IDs and password hashing                                          |
+| `@codexa/core/hash`      | SHA and HMAC helpers                                              |
+| `@codexa/core/device`    | User-agent parsing                                                |
+| `@codexa/core/ttl`       | TTL parsing helpers                                               |
+| `@codexa/core/response`  | Response payload builders                                         |
+| `@codexa/core/query`     | Query-string parser                                               |
+| `@codexa/core/cli`       | `codexa plugin` CLI, installs plugin source from a pinned Git ref |
 
 For a use-case-first tour of the same modules, with diagrams and full explanations, see [Full documentation](https://codexa-docs.vercel.app) below.
 
@@ -675,6 +678,118 @@ const catalogPlugin = definePlugin({
 
 With `versionedPathStrategy: 'suffix'`, this appears as `/catalog/items/{id};version=2.0.0` and includes a required `X-Catalog-Version: 2.0.0` header parameter. Import the generated JSON into Postman, Insomnia, Swagger UI, Scalar, or any OpenAPI 3.1-compatible tooling.
 
+## Generated SDK
+
+`@codexa/core/sdk` turns the routes you explicitly document with OpenAPI metadata into a typed, fetch-based npm package. Routes without `options.openapi`, routes with `openapi.exclude: true`, and disabled routes are not generated.
+
+```ts
+import { createApp, definePlugin } from '@codexa/core/http';
+import { zod } from '@codexa/core/providers/zod';
+
+const projects = definePlugin({
+	name: 'projects',
+	setup(scope) {
+		scope.route({
+			method: 'GET',
+			path: '/projects/:id',
+			handler: (ctx) =>
+				ctx.json({ data: { id: ctx.params.id, name: 'Demo' } }),
+			options: {
+				name: 'projects.get',
+				openapi: {
+					summary: 'Get a project',
+					params: zod.object({ id: zod.string() }),
+					responses: {
+						200: {
+							description: 'Project record',
+							schema: zod.object({
+								data: zod.object({
+									id: zod.string(),
+									name: zod.string(),
+								}),
+							}),
+						},
+					},
+				},
+			},
+		});
+
+		// This remains a working backend route, but is absent from the SDK.
+		scope.route({
+			method: 'GET',
+			path: '/projects/internal-metrics',
+			handler: (ctx) => ctx.json({ data: { queueDepth: 0 } }),
+			options: { name: 'projects.internalMetrics' },
+		});
+	},
+});
+
+export default createApp('api').install(projects);
+```
+
+Generate a versioned package directory and `.tgz` archive:
+
+```bash
+codexa sdk generate ./src/app.ts \
+  --project . \
+  --out ./generated/project-sdk \
+  --name @acme/project-sdk \
+  --client ProjectSDK \
+  --base-url http://localhost:8000 \
+  -V 1.0.0
+```
+
+Install that exact archive into a frontend project. The CLI detects npm, pnpm, Yarn, or Bun from its lockfile unless `--package-manager` is supplied.
+
+```bash
+codexa sdk install ./generated/project-sdk \
+  --project ../frontend \
+  -V 1.0.0
+```
+
+The frontend receives ordinary TypeScript methods and types from the installed package:
+
+```ts
+import { ProjectSDK } from '@acme/project-sdk';
+
+ProjectSDK.init({
+	baseUrl: import.meta.env.VITE_API_URL,
+	headers: () => ({ authorization: `Bearer ${readToken()}` }),
+	permissions: ['projects.get'],
+});
+
+const project = await ProjectSDK.projects.get({
+	params: { id: 'p_100' },
+});
+```
+
+For Next.js server code, create an isolated client per request so authentication headers are never shared across users:
+
+```ts
+import { ProjectSDK } from '@acme/project-sdk';
+
+export async function GET(request: Request) {
+	const sdk = ProjectSDK.create({
+		baseUrl: process.env.API_URL,
+		headers: { authorization: request.headers.get('authorization') ?? '' },
+		permissions: ['projects.get'],
+	});
+	return Response.json(await sdk.projects.get({ params: { id: 'p_100' } }));
+}
+```
+
+`new ProjectSDK(options)` is equivalent to `ProjectSDK.create(options)`. Static `init()` remains convenient for a single browser session. The generated package uses the standard Fetch API, not Axios, RPC, or gRPC. Its `permissions` option is a client-side allow-list that prevents accidental calls; the backend must still authenticate and authorize every request.
+
+When routes change, generate a new version and install that version. Existing version folders are preserved, and generating the same version fails unless `--force` is explicitly passed.
+
+```bash
+codexa sdk generate ./src/app.ts --project . --out ./generated/project-sdk \
+  --name @acme/project-sdk --client ProjectSDK -V 1.0.1
+codexa sdk install ./generated/project-sdk --project ../frontend -V 1.0.1
+```
+
+See the [SDK documentation](https://codexa-docs.vercel.app/docs/sdk/overview) for the complete workflow and generated runtime behavior.
+
 ## Config And Env
 
 ```ts
@@ -789,10 +904,13 @@ import { createStoreRegistry } from '@codexa/core/store';
 
 const stores = createStoreRegistry();
 const sessions = await stores.register('auth:sessions', {
-	mode: 'redis', redisClient: redis.getClient(),
+	mode: 'redis',
+	redisClient: redis.getClient(),
 });
 const authMetadata = await stores.register('auth:metadata', {
-	mode: 'kv', kvPath: './data/auth.db', kvPrefix: 'auth',
+	mode: 'kv',
+	kvPath: './data/auth.db',
+	kvPrefix: 'auth',
 });
 
 await stores.closeAll();
@@ -896,16 +1014,10 @@ HTTP plugins receive resources through their install config. The app (or the reg
 
 ```ts
 import { createApp, definePlugin } from '@codexa/core/http';
-import { createCache, type CacheNamespace } from '@codexa/core/cache';
+import { type CacheNamespace, createCache } from '@codexa/core/cache';
 import { createRedisConnection } from '@codexa/core/config';
-import {
-	createStoreRegistry,
-	type StoreInstance,
-} from '@codexa/core/store';
-import {
-	createEventBusRegistry,
-	type IEventBus,
-} from '@codexa/core/bus';
+import { createStoreRegistry, type StoreInstance } from '@codexa/core/store';
+import { createEventBusRegistry, type IEventBus } from '@codexa/core/bus';
 
 interface AuthResources {
 	sessions: StoreInstance;
@@ -1018,15 +1130,15 @@ If any step fails, everything already changed, `deno.json`, `deno.lock`, `.codex
 
 Every installable plugin repository needs a `plugin.json` manifest at its root:
 
-| Field         | Required | Description                                                              |
-| ------------- | -------- | -------------------------------------------------------------------------- |
-| `schemaVersion` | Yes    | Manifest format version.                                                 |
-| `id`          | Yes      | Folder name the plugin installs under, `plugins/<id>`. Lowercase, hyphens.  |
-| `name`        | Yes      | `@scope/name` format, must match `name` in the plugin's own `deno.json`.   |
-| `version`     | Yes      | Semantic version, must match `version` in the plugin's own `deno.json`.    |
-| `entrypoint`  | Yes      | Must match the `"."` entry of `exports` in the plugin's own `deno.json`.   |
-| `setup`       | No       | Optional path to a setup/bootstrap script.                               |
-| `codexaCore`  | No       | Optional semver range this plugin targets, e.g. `">=1.0.5 <2.0.0"`.       |
+| Field           | Required | Description                                                                |
+| --------------- | -------- | -------------------------------------------------------------------------- |
+| `schemaVersion` | Yes      | Manifest format version.                                                   |
+| `id`            | Yes      | Folder name the plugin installs under, `plugins/<id>`. Lowercase, hyphens. |
+| `name`          | Yes      | `@scope/name` format, must match `name` in the plugin's own `deno.json`.   |
+| `version`       | Yes      | Semantic version, must match `version` in the plugin's own `deno.json`.    |
+| `entrypoint`    | Yes      | Must match the `"."` entry of `exports` in the plugin's own `deno.json`.   |
+| `setup`         | No       | Optional path to a setup/bootstrap script.                                 |
+| `codexaCore`    | No       | Optional semver range this plugin targets, e.g. `">=1.0.5 <2.0.0"`.        |
 
 After installing, wire the plugin into your running app the normal way:
 
@@ -1034,7 +1146,7 @@ After installing, wire the plugin into your running app the normal way:
 import { installOAuthPlugin } from './plugins/oauth/plugin.ts';
 
 const app = createApp();
-await installOAuthPlugin(app, { /* ... */ });
+await installOAuthPlugin(app, {/* ... */});
 ```
 
 ## Release Notes For HTTP Users
