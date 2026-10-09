@@ -1,0 +1,31 @@
+/**
+ * @module @codexa/core/query
+ *
+ * Query-string parsing helper powered by `qs`.
+ *
+ * @example
+ * ```ts
+ * import { parseQueryParams } from '@codexa/core/query';
+ *
+ * const query = parseQueryParams('?page=1&filters[status]=active');
+ * ```
+ */
+import { type IParseOptions, type ParsedQs } from "../providers/qs.d.ts";
+/**
+ * Parse a query string into a structured object.
+ * Automatically strips the leading `?` if present.
+ *
+ * Uses `qs` for full nested object/array support:
+ *   - `?a[b]=c` → `{ a: { b: 'c' } }`
+ *   - `?tags[]=a&tags[]=b` → `{ tags: ['a', 'b'] }`
+ *
+ * @example
+ * ```ts
+ * const params = parseQueryParams('?page=1&limit=20&sort[field]=name');
+ * // { page: '1', limit: '20', sort: { field: 'name' } }
+ *
+ * const params = parseQueryParams('page=1&filters[status]=active&sort=name');
+ * // { page: '1', filters: { status: 'active' }, sort: 'name' }
+ * ```
+ */
+export declare function parseQueryParams(query: string, options?: IParseOptions): ParsedQs;
