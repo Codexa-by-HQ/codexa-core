@@ -1,5 +1,5 @@
 /* @ts-self-types="./mod.d.ts" */
-export const CODEXA_CORE_VERSION = '1.0.8';
+export const CODEXA_CORE_VERSION = '1.0.9';
 export const CODEXA_CORE_MODULES = Object.freeze([
     'http',
     'openapi',

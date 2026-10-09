@@ -17,7 +17,7 @@
  * ```
  */
 /** Current package version published by this source tree. */
-export declare const CODEXA_CORE_VERSION = "1.0.8";
+export declare const CODEXA_CORE_VERSION = "1.0.9";
 /** Public subpath module names exported by `@codexa/core`. */
 export type CodexaCoreModule = 'http' | 'openapi' | 'sdk' | 'config' | 'bus' | 'store' | 'cache' | 'storage' | 'providers' | 'logger' | 'zod' | 'crypto' | 'hash' | 'device' | 'ttl' | 'response' | 'query';
 /** Public subpath modules available from this package. */
