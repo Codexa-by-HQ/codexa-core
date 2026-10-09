@@ -81,8 +81,8 @@
 	},
 	"tasks": {
 		"check": "deno check --no-lock ./mod.js ./src/lib/http/mod.js ./src/lib/openapi/mod.js ./src/lib/sdk/mod.js ./src/config/mod.js ./src/lib/bus/mod.js ./src/lib/store/mod.js ./src/lib/cache/mod.js ./src/lib/storage/mod.js ./src/providers/mod.js ./src/providers/path.js ./src/providers/zod.js ./src/providers/dotenv.js ./src/providers/ioredis.js ./src/providers/mongodb.js ./src/providers/qs.js ./src/providers/rou3.js ./src/providers/ua-parser-js.js ./src/providers/noble-hashes.js ./src/utils/logger.js ./src/utils/crypto.js ./src/utils/hash.js ./src/utils/device.js ./src/utils/ttl.js ./src/utils/response.js ./src/utils/parseQueryParams.js ./src/cli/main.js",
-		"dry-run": "deno publish --no-lock --dry-run --allow-dirty",
-		"publish": "deno publish --no-lock"
+		"dry-run": "deno publish --dry-run --allow-dirty",
+		"publish": "deno publish"
 	},
 	"publish": {
 		"exclude": [
