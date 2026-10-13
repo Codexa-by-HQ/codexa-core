@@ -13,11 +13,7 @@
  * ```
  */
 
-import type {
-	LogEntry,
-	Logger,
-	LogLevelT,
-} from '../types/app.d.ts';
+import type { LogEntry, Logger, LogLevelT } from '../types/app.d.ts';
 
 // logger levels
 const LOG_LEVELS: Record<LogLevelT, number> = {
@@ -66,11 +62,10 @@ export type LogWriter = (
  */
 export function createLogger(
 	module: string,
-	options?: { level?: LogLevelT; production?: boolean; writer?: LogWriter; },
+	options?: { level?: LogLevelT; production?: boolean; writer?: LogWriter },
 ): Logger {
-
 	const normalizedModule = normalizeModuleName(module);
-	const minimumLevel = options?.level ?? "debug";
+	const minimumLevel = options?.level ?? 'debug';
 	const production = options?.production ?? false;
 	const writer = options?.writer;
 
@@ -78,7 +73,7 @@ export function createLogger(
 
 	return Object.freeze({
 		debug: createLogMethod(
-			"debug",
+			'debug',
 			normalizedModule,
 			minimumLevel,
 			production,
@@ -86,7 +81,7 @@ export function createLogger(
 		),
 
 		info: createLogMethod(
-			"info",
+			'info',
 			normalizedModule,
 			minimumLevel,
 			production,
@@ -94,7 +89,7 @@ export function createLogger(
 		),
 
 		warn: createLogMethod(
-			"warn",
+			'warn',
 			normalizedModule,
 			minimumLevel,
 			production,
@@ -102,7 +97,7 @@ export function createLogger(
 		),
 
 		error: createLogMethod(
-			"error",
+			'error',
 			normalizedModule,
 			minimumLevel,
 			production,
@@ -110,7 +105,7 @@ export function createLogger(
 		),
 
 		fatal: createLogMethod(
-			"fatal",
+			'fatal',
 			normalizedModule,
 			minimumLevel,
 			production,
@@ -159,24 +154,21 @@ function createLogMethod(
 	};
 }
 
-
 function createLogEntry(
-  level: LogLevelT,
-  module: string,
-  message: string,
-  data: readonly unknown[],
+	level: LogLevelT,
+	module: string,
+	message: string,
+	data: readonly unknown[],
 ): Readonly<LogEntry> {
-  const normalizedData = normalizeLogData(data);
+	const normalizedData = normalizeLogData(data);
 
-  return Object.freeze({
-    timestamp: new Date().toISOString(),
-    level,
-    module,
-    message,
-    ...(normalizedData === undefined
-      ? {}
-      : { data: normalizedData }),
-  });
+	return Object.freeze({
+		timestamp: new Date().toISOString(),
+		level,
+		module,
+		message,
+		...(normalizedData === undefined ? {} : { data: normalizedData }),
+	});
 }
 
 function shouldLog(level: LogLevelT, minLevel: LogLevelT): boolean {
@@ -184,183 +176,182 @@ function shouldLog(level: LogLevelT, minLevel: LogLevelT): boolean {
 }
 
 function writeToConsole(
-  level: LogLevelT,
-  output: string,
+	level: LogLevelT,
+	output: string,
 ): void {
-  switch (level) {
-    case "debug":
-      console.debug(output);
-      return;
+	switch (level) {
+		case 'debug':
+			console.debug(output);
+			return;
 
-    case "info":
-      console.info(output);
-      return;
+		case 'info':
+			console.info(output);
+			return;
 
-    case "warn":
-      console.warn(output);
-      return;
+		case 'warn':
+			console.warn(output);
+			return;
 
-    case "error":
-    case "fatal":
-      console.error(output);
-      return;
-  }
+		case 'error':
+		case 'fatal':
+			console.error(output);
+			return;
+	}
 }
 
 function safelyWriteEntry(
-  writer: LogWriter,
-  entry: Readonly<LogEntry>,
+	writer: LogWriter,
+	entry: Readonly<LogEntry>,
 ): void {
-  try {
-    const result = writer(entry);
+	try {
+		const result = writer(entry);
 
-    if (isPromiseLike(result)) {
-      void result.catch((error: unknown) => {
-        console.error(
-          "[Logger] Asynchronous log writer failed.",
-          error,
-        );
-      });
-    }
-  } catch (error) {
-    console.error(
-      "[Logger] Log writer failed.",
-      error,
-    );
-  }
+		if (isPromiseLike(result)) {
+			void result.catch((error: unknown) => {
+				console.error(
+					'[Logger] Asynchronous log writer failed.',
+					error,
+				);
+			});
+		}
+	} catch (error) {
+		console.error(
+			'[Logger] Log writer failed.',
+			error,
+		);
+	}
 }
 
 function isPromiseLike(
-  value: unknown,
+	value: unknown,
 ): value is PromiseLike<void> & {
-  catch(
-    onRejected: (error: unknown) => void,
-  ): PromiseLike<void>;
+	catch(
+		onRejected: (error: unknown) => void,
+	): PromiseLike<void>;
 } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "then" in value &&
-    typeof value.then === "function" &&
-    "catch" in value &&
-    typeof value.catch === "function"
-  );
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'then' in value &&
+		typeof value.then === 'function' &&
+		'catch' in value &&
+		typeof value.catch === 'function'
+	);
 }
 
 function normalizeModuleName(module: string): string {
-  const normalized = module.trim();
+	const normalized = module.trim();
 
-  if (normalized === "") {
-    throw new Error("Logger module name cannot be empty.");
-  }
+	if (normalized === '') {
+		throw new Error('Logger module name cannot be empty.');
+	}
 
-  return normalized;
+	return normalized;
 }
 
 function assertLogLevel(
-  level: string,
+	level: string,
 ): asserts level is LogLevelT {
-  if (!(level in LOG_LEVELS)) {
-    throw new Error(`Invalid log level: ${level}`);
-  }
+	if (!(level in LOG_LEVELS)) {
+		throw new Error(`Invalid log level: ${level}`);
+	}
 }
 
-
 function normalizeLogData(
-  data: readonly unknown[],
+	data: readonly unknown[],
 ): unknown {
-  if (data.length === 0) {
-    return undefined;
-  }
+	if (data.length === 0) {
+		return undefined;
+	}
 
-  if (data.length === 1) {
-    return serializeValue(data[0]);
-  }
+	if (data.length === 1) {
+		return serializeValue(data[0]);
+	}
 
-  return data.map(serializeValue);
+	return data.map(serializeValue);
 }
 
 function serializeValue(value: unknown): unknown {
-  if (value instanceof Error) {
-    return Object.freeze({
-      name: value.name,
-      message: value.message,
-      stack: value.stack,
-      cause: serializeErrorCause(value.cause),
-    });
-  }
+	if (value instanceof Error) {
+		return Object.freeze({
+			name: value.name,
+			message: value.message,
+			stack: value.stack,
+			cause: serializeErrorCause(value.cause),
+		});
+	}
 
-  return value;
+	return value;
 }
 
 function serializeErrorCause(
-  cause: unknown,
+	cause: unknown,
 ): unknown {
-  if (cause === undefined) {
-    return undefined;
-  }
+	if (cause === undefined) {
+		return undefined;
+	}
 
-  if (cause instanceof Error) {
-    return Object.freeze({
-      name: cause.name,
-      message: cause.message,
-      stack: cause.stack,
-    });
-  }
+	if (cause instanceof Error) {
+		return Object.freeze({
+			name: cause.name,
+			message: cause.message,
+			stack: cause.stack,
+		});
+	}
 
-  return cause;
+	return cause;
 }
 
-
 function formatDevelopmentEntry(
-  entry: Readonly<LogEntry>,
+	entry: Readonly<LogEntry>,
 ): string {
-  const level = entry.level.toUpperCase().padEnd(5);
-  const levelColor = COLORS[entry.level];
+	const level = entry.level.toUpperCase().padEnd(5);
+	const levelColor = COLORS[entry.level];
 
-  let output =
-    `${COLORS.timestamp}${formatTimestamp(entry.timestamp)}${COLORS.reset} ` +
-    `${levelColor}${COLORS.bold}${level}${COLORS.reset} ` +
-    `${COLORS.module}[${entry.module}]${COLORS.reset} ` +
-    entry.message;
+	let output =
+		`${COLORS.timestamp}${
+			formatTimestamp(entry.timestamp)
+		}${COLORS.reset} ` +
+		`${levelColor}${COLORS.bold}${level}${COLORS.reset} ` +
+		`${COLORS.module}[${entry.module}]${COLORS.reset} ` +
+		entry.message;
 
-  if (entry.data !== undefined) {
-    output += ` ${levelColor}${formatData(entry.data)}${COLORS.reset}`;
-  }
+	if (entry.data !== undefined) {
+		output += ` ${levelColor}${formatData(entry.data)}${COLORS.reset}`;
+	}
 
-  return output;
+	return output;
 }
 
 function formatTimestamp(
-  isoTimestamp: string,
+	isoTimestamp: string,
 ): string {
-  const date = new Date(isoTimestamp);
+	const date = new Date(isoTimestamp);
 
-  const pad = (
-    value: number,
-    length = 2,
-  ): string => String(value).padStart(length, "0");
+	const pad = (
+		value: number,
+		length = 2,
+	): string => String(value).padStart(length, '0');
 
-  return (
-    `${date.getFullYear()}-` +
-    `${pad(date.getMonth() + 1)}-` +
-    `${pad(date.getDate())} ` +
-    `${pad(date.getHours())}:` +
-    `${pad(date.getMinutes())}:` +
-    `${pad(date.getSeconds())}.` +
-    pad(date.getMilliseconds(), 3)
-  );
+	return (
+		`${date.getFullYear()}-` +
+		`${pad(date.getMonth() + 1)}-` +
+		`${pad(date.getDate())} ` +
+		`${pad(date.getHours())}:` +
+		`${pad(date.getMinutes())}:` +
+		`${pad(date.getSeconds())}.` +
+		pad(date.getMilliseconds(), 3)
+	);
 }
 
 function formatData(data: unknown): string {
-  if (typeof data === "string") {
-    return data;
-  }
+	if (typeof data === 'string') {
+		return data;
+	}
 
-  try {
-    return JSON.stringify(data, null, 2);
-  } catch {
-    return String(data);
-  }
+	try {
+		return JSON.stringify(data, null, 2);
+	} catch {
+		return String(data);
+	}
 }
-

@@ -249,27 +249,27 @@ export interface TransformationOptions {
 	height?: number | `${number}%`;
 	crop?: 'scale' | 'fill' | 'fit' | 'crop' | 'pad' | 'limit' | string;
 	format?:
-	| 'webp'
-	| 'avif'
-	| 'jpeg'
-	| 'png'
-	| 'mp4'
-	| 'webm'
-	| 'mov'
-	| 'jpg'
-	| 'gif'
-	| 'svg'
-	| 'auto'
-	| string;
+		| 'webp'
+		| 'avif'
+		| 'jpeg'
+		| 'png'
+		| 'mp4'
+		| 'webm'
+		| 'mov'
+		| 'jpg'
+		| 'gif'
+		| 'svg'
+		| 'auto'
+		| string;
 	quality?: number | 'auto';
 
 	// Escape hatches for provider-specific options
 	cloudinaryOpts?:
-	| Record<string, unknown>
-	| Array<Record<string, unknown>>;
+		| Record<string, unknown>
+		| Array<Record<string, unknown>>;
 	imagekitOpts?:
-	| Record<string, unknown>
-	| Array<Record<string, unknown>>;
+		| Record<string, unknown>
+		| Array<Record<string, unknown>>;
 }
 
 /** Upload metadata for server-side uploads. */

@@ -29,23 +29,23 @@
  *
  * // Deno:
  * Deno.serve(app.dispatch);
- * 
+ *
  * // Bun:
  * Bun.serve({
  *   port: 3000,
  *   fetch: app.dispatch,
  * });
- * 
+ *
  * // Cloudflare Worker:
  * export default {
  *   fetch: app.dispatch,
  * };
- * 
+ *
  * // Direct invocation (tests, jobs, other frameworks):
  * const response = await app.dispatch(
  *   new Request('http://localhost/api'),
  * );
- * 
+ *
  * // Node.js with a Fetch-compatible adapter such as `@hono/node-server`:
  * import { serve } from '@hono/node-server';
  * serve({ fetch: app.dispatch, port: 3000 });

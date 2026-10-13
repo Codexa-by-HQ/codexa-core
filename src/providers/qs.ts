@@ -9,9 +9,9 @@ import qs from 'qs';
 export { qs };
 export default qs;
 
-export const parse = qs.parse;
-export const stringify = qs.stringify;
-export const formats = qs.formats;
+export const parse: typeof qs.parse = qs.parse;
+export const stringify: typeof qs.stringify = qs.stringify;
+export const formats: typeof qs.formats = qs.formats;
 
 export type IParseOptions = qs.IParseOptions;
 export type IStringifyOptions = qs.IStringifyOptions;

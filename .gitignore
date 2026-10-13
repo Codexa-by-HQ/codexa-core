@@ -4,6 +4,7 @@ docs/*
 .env
 .env.*
 *.log
+dist/*
 deno.lock*
 
 next_updates.md

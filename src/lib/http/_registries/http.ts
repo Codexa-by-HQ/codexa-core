@@ -784,11 +784,12 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			if (this.#routesMap.has(route.key)) {
 				frameworkMessage(
 					'error',
-					`Duplicate route across plugins: ${formatRouteIdentity(
-						route.method,
-						route.path,
-						route.meta.version,
-					)
+					`Duplicate route across plugins: ${
+						formatRouteIdentity(
+							route.method,
+							route.path,
+							route.meta.version,
+						)
 					}`,
 				);
 			}
@@ -928,7 +929,8 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 					) {
 						frameworkMessage(
 							'error',
-							`Version header conflict for ${formatRouteIdentity(route.method, route.path)
+							`Version header conflict for ${
+								formatRouteIdentity(route.method, route.path)
 							}. Use one version header per method/path bucket.`,
 						);
 					}
@@ -996,7 +998,6 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			((query?.tags?.length ?? 0) > 0 ||
 				(query?.plugins?.length ?? 0) > 0);
 		const wantsServices = hasQuery && (query?.services?.length ?? 0) > 0;
-
 
 		const routeList = [...this.#routesMap.values()].sort((a, b) =>
 			a.order - b.order

@@ -7,7 +7,7 @@
  * `createStore()` for independent plugin-owned instances or
  * `createStoreRegistry()` for named instances with centralized cleanup.
  * `initializeStore()` and `store` remain the default-app compatibility API.
- * 
+ *
  * @example Independent plugin stores
  * ```ts
  * import { createStore } from '@codexa/core/store';

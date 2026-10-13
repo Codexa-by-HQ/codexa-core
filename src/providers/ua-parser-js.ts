@@ -7,5 +7,5 @@
 import { UAParser } from 'ua-parser-js';
 
 export { UAParser };
-export const uaParserJs = UAParser;
+export const uaParserJs: typeof UAParser = UAParser;
 export default UAParser;
