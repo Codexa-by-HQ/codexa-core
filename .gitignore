@@ -1,11 +1,9 @@
-node_modules/
-deno.lock
+node_modules*/*
+tests/*
+docs/*
 .env
 .env.*
 *.log
-**/*.ts
-!**/*.d.ts
-**/*.tsx
-**/*.map
-scripts/
-tests/
+deno.lock*
+
+next_updates.md

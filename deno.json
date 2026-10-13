@@ -1,6 +1,6 @@
 {
 	"name": "@codexa/core",
-	"version": "1.0.9",
+	"version": "1.0.8",
 	"license": "MIT",
 	"description": "Enterprise-grade modular toolkit for Deno - plugin-first HTTP, event bus, store, cache, type-safe env, MongoDB, Redis, storage, and more.",
 	"author": "Hamza Qureshi",
@@ -29,72 +29,143 @@
 		"modular",
 		"enterprise",
 		"codexa",
-		"typescript"
+		"typescript",
+		"toolkit"
 	],
 	"exports": {
-		".": "./mod.js",
-		"./http": "./src/lib/http/mod.js",
-		"./openapi": "./src/lib/openapi/mod.js",
-		"./sdk": "./src/lib/sdk/mod.js",
-		"./config": "./src/config/mod.js",
-		"./bus": "./src/lib/bus/mod.js",
-		"./store": "./src/lib/store/mod.js",
-		"./cache": "./src/lib/cache/mod.js",
-		"./storage": "./src/lib/storage/mod.js",
-		"./providers": "./src/providers/mod.js",
-		"./providers/path": "./src/providers/path.js",
-		"./providers/zod": "./src/providers/zod.js",
-		"./providers/dotenv": "./src/providers/dotenv.js",
-		"./providers/ioredis": "./src/providers/ioredis.js",
-		"./providers/mongodb": "./src/providers/mongodb.js",
-		"./providers/qs": "./src/providers/qs.js",
-		"./providers/rou3": "./src/providers/rou3.js",
-		"./providers/ua-parser-js": "./src/providers/ua-parser-js.js",
-		"./providers/noble-hashes": "./src/providers/noble-hashes.js",
-		"./logger": "./src/utils/logger.js",
-		"./zod": "./src/providers/zod.js",
-		"./crypto": "./src/utils/crypto.js",
-		"./hash": "./src/utils/hash.js",
-		"./device": "./src/utils/device.js",
-		"./ttl": "./src/utils/ttl.js",
-		"./response": "./src/utils/response.js",
-		"./query": "./src/utils/parseQueryParams.js",
-		"./cli": "./src/cli/main.js"
+		".": "./mod.ts",
+		"./http": "./src/lib/http/mod.ts",
+		"./openapi": "./src/lib/openapi/mod.ts",
+		"./sdk": "./src/lib/sdk/mod.ts",
+		"./config": "./src/config/mod.ts",
+		"./bus": "./src/lib/bus/mod.ts",
+		"./store": "./src/lib/store/mod.ts",
+		"./cache": "./src/lib/cache/mod.ts",
+		"./storage": "./src/lib/storage/mod.ts",
+		"./cli": "./src/cli/main.ts",
+
+		"./providers": "./src/providers/mod.ts",
+		"./providers/path": "./src/providers/path.ts",
+		"./providers/zod": "./src/providers/zod.ts",
+		"./providers/dotenv": "./src/providers/dotenv.ts",
+		"./providers/ioredis": "./src/providers/ioredis.ts",
+		"./providers/mongodb": "./src/providers/mongodb.ts",
+		"./providers/qs": "./src/providers/qs.ts",
+		"./providers/rou3": "./src/providers/rou3.ts",
+		"./providers/ua-parser-js": "./src/providers/ua-parser-js.ts",
+		"./providers/noble-hashes": "./src/providers/noble-hashes.ts",
+
+		"./logger": "./src/utils/logger.ts",
+		"./zod": "./src/providers/zod.ts",
+		"./crypto": "./src/utils/crypto.ts",
+		"./hash": "./src/utils/hash.ts",
+		"./device": "./src/utils/device.ts",
+		"./ttl": "./src/utils/ttl.ts",
+		"./response": "./src/utils/response.ts",
+		"./query": "./src/utils/parseQueryParams.ts"
+	},
+	"publish": {
+		"include": [
+			"LICENSE",
+			"README.md",
+			"mod.ts",
+			"src/**/*.ts",
+			"deno.json",
+			"benchmarks/results/results.json",
+			"benchmarks/results/results.md"
+		],
+		"exclude": [
+			"env.example.txt",
+			"src/**/*.test.ts",
+			"src/**/*.spec.ts",
+			"dist/**",
+			"tests/"
+		]
+	},
+	"tasks": {
+		"lint": "deno lint",
+		"lint:fix": "deno lint --fix",
+		"format": "deno fmt --watch",
+		"format:check": "deno fmt --check",
+		"check": "deno check --no-lock mod.ts src/providers/mod.ts src/providers/*.ts src/lib/http/mod.ts src/lib/openapi/mod.ts src/lib/sdk/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts src/cli/main.ts src/cli/plugin.test.ts",
+		"test:cli": "deno test --allow-read --allow-write src/cli/plugin.test.ts",
+		"test": "deno test --unstable-kv --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
+		"build": "deno run --allow-read --allow-write=dist --allow-env scripts/build.ts",
+		"js:release:prepare": {
+			"command": "deno run --allow-read --allow-write=../public scripts/export.ts",
+			"dependencies": [
+				"check",
+				"build"
+			]
+		},
+		"dry-run": {
+			"dependencies": [
+				"build"
+			],
+			"command": "deno publish --no-lock --dry-run --allow-dirty"
+		},
+		"publish": "deno publish"
 	},
 	"imports": {
 		"@std/path": "jsr:@std/path@^1.1.6",
-		"@zod/zod": "jsr:@zod/zod@^4.6.5",
+		"@zod/zod": "jsr:@zod/zod@^4.5.4",
 		"@std/dotenv": "jsr:@std/dotenv@^0.225.8",
 		"ioredis": "npm:ioredis@^6.0.0",
-		"mongodb": "npm:mongodb@^7.7.0",
+		"mongodb": "npm:mongodb@^7.6.0",
 		"qs": "npm:qs@^6.16.0",
-		"rou3": "npm:rou3@^1.0.0",
+		"rou3": "npm:rou3@^0.9.2",
 		"ua-parser-js": "npm:ua-parser-js@^2.0.10",
 		"@noble/hashes": "npm:@noble/hashes@2.4.0"
 	},
-	"compilerOptions": {
-		"lib": [
-			"deno.window",
-			"deno.unstable"
-		],
-		"strict": true
-	},
-	"tasks": {
-		"check": "deno check --no-lock ./mod.js ./src/lib/http/mod.js ./src/lib/openapi/mod.js ./src/lib/sdk/mod.js ./src/config/mod.js ./src/lib/bus/mod.js ./src/lib/store/mod.js ./src/lib/cache/mod.js ./src/lib/storage/mod.js ./src/providers/mod.js ./src/providers/path.js ./src/providers/zod.js ./src/providers/dotenv.js ./src/providers/ioredis.js ./src/providers/mongodb.js ./src/providers/qs.js ./src/providers/rou3.js ./src/providers/ua-parser-js.js ./src/providers/noble-hashes.js ./src/utils/logger.js ./src/utils/crypto.js ./src/utils/hash.js ./src/utils/device.js ./src/utils/ttl.js ./src/utils/response.js ./src/utils/parseQueryParams.js ./src/cli/main.js",
-		"dry-run": "deno publish --dry-run --allow-dirty",
-		"publish": "deno publish"
-	},
-	"publish": {
-		"exclude": [
-			"!**"
-		],
+	"lint": {
 		"include": [
-			"**/*.js",
-			"**/*.d.ts",
-			"deno.json",
-			"README.md",
-			"LICENSE",
-			"env.example.txt"
+			"./src/",
+			"./mod.ts",
+			"./scripts/"
+		],
+		"exclude": [
+			"tests/",
+			"node_modules/"
+		],
+		"rules": {
+			"tags": ["recommended"],
+			"include": [
+				"ban-untagged-todo",
+				"no-explicit-any",
+				"no-non-null-assertion",
+				"prefer-as-const",
+				"no-unsafe-finally",
+				"ban-untagged-ignore",
+				"eqeqeq",
+				"camelcase",
+				"no-eval"
+			],
+			"exclude": [
+				"no-unused-vars",
+				"no-console",
+				"require-await"
+			]
+		}
+	},
+	"fmt": {
+		"useTabs": true,
+		"lineWidth": 80,
+		"indentWidth": 4,
+		"semiColons": true,
+		"singleQuote": true,
+		"proseWrap": "preserve",
+		"include": [
+			"./src/",
+			"./mod.ts",
+			"./scripts/"
+		],
+		"exclude": [
+			"tests/",
+			"node_modules/"
 		]
+	},
+	"compilerOptions": {
+		"lib": ["deno.window", "deno.unstable"],
+		"strict": true
 	}
 }
