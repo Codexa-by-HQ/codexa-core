@@ -25,7 +25,6 @@ import type {
 	CommitRouteIndex,
 	CompiledAppliedOnMatcher,
 	MiddlewareRegistration,
-	Rou3MatchResult,
 	RouteKey,
 	RouteMeta,
 	RouteOrigin,
@@ -201,16 +200,6 @@ export function normalizePath(path: string): string {
 		return path.slice(0, -1);
 	}
 	return path;
-}
-
-export function normalizeRequestPath(pathname: string): string {
-	if (pathname === '') {
-		return '/';
-	}
-	if (pathname.length > 1 && pathname.endsWith('/')) {
-		return pathname.slice(0, -1);
-	}
-	return pathname;
 }
 
 export function joinPaths(prefix: string, path: string): string {
@@ -633,10 +622,6 @@ export function toParams(value: unknown): RouteParams {
 		params[key] = String(item);
 	}
 	return Object.freeze(params);
-}
-
-export function isRou3MatchResult(value: unknown): value is Rou3MatchResult {
-	return typeof value === 'object' && value !== null && 'data' in value;
 }
 
 export function setPhase(

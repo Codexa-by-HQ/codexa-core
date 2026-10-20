@@ -17,6 +17,6 @@ export * as dotenv from './dotenv.ts';
 export * as ioredis from './ioredis.ts';
 export * as mongodb from './mongodb.ts';
 export * as qs from './qs.ts';
-export * as rou3 from './rou3.ts';
+export * as jetrouter from './jetrouter.ts';
 export * as uaParserJs from './ua-parser-js.ts';
 export * as nobleHashes from './noble-hashes.ts';

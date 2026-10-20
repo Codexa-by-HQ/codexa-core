@@ -1,10 +1,15 @@
 node_modules*/*
 tests/*
+!tests/smoke.test.ts
+!tests/jetrouter.test.ts
 docs/*
 .env
 .env.*
 *.log
 dist/*
 deno.lock*
+!benchmarks/http/deno.lock
+benchmarks/http
+benchmarks/results/evidence
 
 next_updates.md

@@ -3,7 +3,7 @@
  *
  * Plugin-first HTTP for Codexa applications.
  *
- * Slogan: build APIs as installable capabilities, then let Rou3 keep request
+ * Slogan: build APIs as installable capabilities, then let JetRouter keep request
  * routing fast.
  *
  * This module is the public contract: request context, middleware, plugin,

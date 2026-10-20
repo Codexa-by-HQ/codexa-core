@@ -1,4 +1,4 @@
-import type { createRouter as rou3Create } from '../../../providers/rou3.ts';
+import type { Router } from '../../../providers/jetrouter.ts';
 import type {
 	AppMiddlewareFn,
 	Context,
@@ -17,7 +17,7 @@ import type {
 } from '../mod.ts';
 export type RoutePathKey = string;
 export type RouteKey = string;
-export type Rou3Router = ReturnType<typeof rou3Create>;
+export type RouterMatcher = Router<RoutePathKey>;
 export type RouteOrigin = 'router' | 'plugin';
 export type MiddlewareKind = 'plugin' | 'inline';
 export type AppliedOnMatchKind =
@@ -26,11 +26,6 @@ export type AppliedOnMatchKind =
 	| 'startsWith'
 	| 'endsWith'
 	| 'contains';
-
-export interface Rou3MatchResult {
-	readonly data: unknown;
-	readonly params?: unknown;
-}
 
 export interface CompiledAppliedOnMatcher {
 	readonly raw: string;

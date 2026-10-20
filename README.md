@@ -5,7 +5,7 @@
 
 Codexa Core is a modular Deno toolkit for building backend systems with small, focused imports.
 
-The HTTP module is plugin-first: build each capability as an installable plugin, expose only the services you want other plugins to consume, and let Rou3 handle fast route dispatch.
+The HTTP module is plugin-first: build each capability as an installable plugin, expose only the services you want other plugins to consume, and let JetRouter handle route dispatch.
 
 > This README covers every public subpath with runnable examples. For guided walkthroughs, deeper explanations, and worked examples, visit the [official Codexa Core documentation](https://codexa-docs.vercel.app).
 
@@ -65,7 +65,7 @@ Available public subpaths:
 
 | Import                   | Purpose                                                           |
 | ------------------------ | ----------------------------------------------------------------- |
-| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and Rou3                |
+| `@codexa/core/http`      | Plugin-first HTTP framework built on Deno and JetRouter           |
 | `@codexa/core/openapi`   | OpenAPI 3.1 generator from HTTP `inspect()` metadata              |
 | `@codexa/core/config`    | Environment, MongoDB, Redis, and storage config helpers           |
 | `@codexa/core/bus`       | Local or Redis-backed event bus                                   |
@@ -94,7 +94,7 @@ import { zod } from '@codexa/core/providers/zod';
 import { MongoClient } from '@codexa/core/providers/mongodb';
 import Redis from '@codexa/core/providers/ioredis';
 import qs from '@codexa/core/providers/qs';
-import { createRouter } from '@codexa/core/providers/rou3';
+import { createRouter } from '@codexa/core/providers/jetrouter';
 import { UAParser } from '@codexa/core/providers/ua-parser-js';
 import { join } from '@codexa/core/providers/path';
 import { load } from '@codexa/core/providers/dotenv';
@@ -111,11 +111,13 @@ Dedicated provider subpaths:
 | `@codexa/core/providers/ioredis`      | `ioredis`               |
 | `@codexa/core/providers/mongodb`      | `mongodb`               |
 | `@codexa/core/providers/qs`           | `qs`                    |
-| `@codexa/core/providers/rou3`         | `rou3`                  |
+| `@codexa/core/providers/jetrouter`    | `jetrouter`             |
 | `@codexa/core/providers/ua-parser-js` | `ua-parser-js`          |
 | `@codexa/core/providers/noble-hashes` | `@noble/hashes` modules |
 
 `@codexa/core/zod` remains available as a compatibility alias, but new code should prefer `@codexa/core/providers/zod`.
+
+`@codexa/core/providers/jetrouter` exposes the standalone JetRouter engine. Its `createRouter()` creates a method/path matcher; use `createRouter()` from `@codexa/core/http` for reusable route collections mounted into Codexa plugins.
 
 ## HTTP Quick Start
 
@@ -157,6 +159,8 @@ const app = createApp('codexa-api')
 await app.boot();
 await app.listen({ port: 8000 });
 ```
+
+Codexa compiles its JetRouter matcher during boot. Route matching is case-sensitive, uses the URL pathname without the query string, and preserves URL-encoded parameter values. A registered `/users` route matches `/users` and `/users/`; `/users//` and `/users///` do not match and use the not-found handler.
 
 Use factories instead of class constructors: `createApp`, `createRouter`, `definePlugin`, `defineMiddleware`, and `definePluginMiddleware`.
 
@@ -1151,7 +1155,7 @@ await installOAuthPlugin(app, {/* ... */});
 
 ## Release Notes For HTTP Users
 
-- The HTTP framework uses Deno and Rou3 with factory-based APIs.
+- The HTTP framework uses Deno and JetRouter with factory-based APIs.
 - Import `createApp`, `createRouter`, `definePlugin`, and middleware helpers from `@codexa/core/http`.
 - The main app installs plugins and owns lifecycle methods like `boot`, `listen`, `dispatch`, `shutdown`, and `whenStopped`.
 - Plugins own routes, middleware, version headers, hooks, and services.
@@ -1162,7 +1166,9 @@ await installOAuthPlugin(app, {/* ... */});
 
 ## Benchmarks
 
-`GET /hello`, `GET /users/:id`, and `POST /users` with a validated Zod body, load tested against raw `Deno.serve`, Oak, Hono, and Express, loaded from the published `@codexa/core` package itself, not local source. Codexa Core lands in the same tier as Hono on both GET routes, and clearly ahead of Oak and Express on all three. Full methodology, chart, and reproduction steps: [codexa-docs.vercel.app/docs/benchmarks](https://codexa-docs.vercel.app/docs/benchmarks). The raw numbers behind that page ship with this package at `benchmarks/results/results.json` and `results.md`.
+The local generated build using JetRouter was tested against Express, Oak, Fastify, Hono, NestJS (Express adapter), Thunder, and raw `Deno.serve`. The run covers static GET, parameterized GET, JSON POST with the same Zod validation, and varied deep paths from a 1,004-route table. Three rounds produced 108 validated samples and 22,252,810 checked responses. Client CPU warnings affected 68 samples, so these local HTTP stack measurements do not establish a universal framework ranking or maximum server capacity.
+
+The audited summary is in [`benchmarks/results/results.md`](benchmarks/results/results.md) and [`results.json`](benchmarks/results/results.json); raw samples and counter audits are retained under `benchmarks/results/evidence/2026-10-20/`. The reproducible harness is in [`benchmarks/http/`](benchmarks/http/README.md). Historical September 7 results are preserved under `benchmarks/results/history/2026-09-07/` and should not be used to infer a router-only speedup. The [benchmark documentation](https://codexa-docs.vercel.app/docs/benchmarks) explains the workloads, controls, and limitations.
 
 ## Documentation
 

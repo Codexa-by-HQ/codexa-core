@@ -1,9 +1,9 @@
 import {
-	addRoute as rou3Add,
-	createRouter as rou3Create,
-	findRoute as rou3Find,
-	routeToRegExp as rou3ToRegExp,
-} from '../../../providers/rou3.ts';
+	addRoute as matcherAdd,
+	createRouter as matcherCreate,
+	findRoute as matcherFind,
+	routeToRegExp as matcherToRegExp,
+} from '../../../providers/jetrouter.ts';
 import { DEFAULT_VERSION_HEADER } from '../_internals/constants.ts';
 import type {
 	Empty,
@@ -34,11 +34,11 @@ import type {
 	PluginHost,
 	PluginRecord,
 	PluginScopeSnapshot,
-	Rou3Router,
 	RouteKey,
 	RouteMeta,
 	RoutePathKey,
 	RouteRegistration,
+	RouterMatcher,
 } from '../_internals/types.ts';
 import {
 	buildCommitRouteIndex,
@@ -55,12 +55,10 @@ import {
 	formatRouteIdentity,
 	frameworkMessage,
 	hasAnyTag,
-	isRou3MatchResult,
 	normalizeName,
 	normalizePath,
 	normalizePluginMetadata,
 	normalizePluginName,
-	normalizeRequestPath,
 	normalizeServiceName,
 	normalizeVersionHeader,
 	responseToSnapshot,
@@ -77,7 +75,7 @@ import { createPluginScope } from './plugin.ts';
 class CodexaHttpApp<InstalledPlugins extends string = never>
 	implements ICodexaHttp<InstalledPlugins> {
 	#phase: LifeCyclePhase = 'idle';
-	#matcher: Rou3Router | undefined;
+	#matcher: RouterMatcher | undefined;
 	#compiledRoutesMap = new Map<RouteKey, CommittedRoute<StateShape>>();
 	#compiledRouteBuckets = new Map<
 		RoutePathKey,
@@ -384,22 +382,22 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			if (matcher === undefined) {
 				frameworkMessage('error', 'Router matcher is not ready.');
 			}
-			const found = rou3Find(
+			const found = matcherFind(
 				matcher,
 				method,
-				normalizeRequestPath(url.pathname),
+				url.pathname,
 				{
 					params: true,
 					normalize: false,
 				},
 			);
-			if (!isRou3MatchResult(found) || typeof found.data !== 'string') {
+			if (found === undefined) {
 				const response = await this.#notFoundHandler(request);
 				await this.#emitRequestHooksForRequest(request, response);
 				return response;
 			}
 			const route = this.#selectCommittedRoute(
-				found.data as RoutePathKey,
+				found.data,
 				request,
 			);
 			if (route === undefined || !route.meta.enabled) {
@@ -495,7 +493,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 		if (!this.hasRoute(method, path)) {
 			return null;
 		}
-		return rou3ToRegExp(normalizePath(path));
+		return matcherToRegExp(normalizePath(path));
 	}
 
 	public getPhase(): LifeCyclePhase {
@@ -838,7 +836,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 
 	#commit(): void {
 		const routes = [...this.#routesMap.values()];
-		const nextMatcher = rou3Create();
+		const nextMatcher = matcherCreate<RoutePathKey>();
 		const nextCompiled = new Map<RouteKey, CommittedRoute<StateShape>>();
 		const addedMatcherKeys = new Set<RoutePathKey>();
 		const mutableBuckets = new Map<
@@ -938,7 +936,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 					bucket.versions.set(route.meta.version, committed);
 				}
 				if (!addedMatcherKeys.has(route.matchKey)) {
-					rou3Add(
+					matcherAdd(
 						nextMatcher,
 						route.method,
 						route.path,
@@ -949,6 +947,7 @@ class CodexaHttpApp<InstalledPlugins extends string = never>
 			}
 		}
 
+		nextMatcher.compile();
 		this.#matcher = nextMatcher;
 		this.#compiledRoutesMap = nextCompiled;
 		this.#compiledRouteBuckets = new Map(

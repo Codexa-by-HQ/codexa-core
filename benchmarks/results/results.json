@@ -1,260 +1,3727 @@
 {
-  "generatedAt": "2026-09-07T05:27:20.884Z",
+  "generatedAt": "2026-10-20T13:26:40.159Z",
   "config": {
     "connections": 50,
     "duration": 10,
+    "warmup": 3,
+    "rounds": 3,
     "pipelining": 1,
-    "warmup": 3
+    "workers": 1,
+    "routeCount": 1000,
+    "registeredRoutes": 1004,
+    "loadGenerator": "autocannon 8.0.0",
+    "serverWorkers": 1
   },
   "env": {
     "os": "Windows_NT 10.0.19045 (x64)",
     "cpu": "Intel(R) Core(TM) i7-7500U CPU @ 2.70GHz",
+    "logicalCores": 4,
+    "node": "24.21.0",
+    "deno": "deno 2.9.7 (stable, release, x86_64-pc-windows-msvc)",
+    "powerPlan": "Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)",
+    "timezone": "America/Los_Angeles",
     "cores": 4
   },
-  "legend": {
-    "node": "24.14.0",
-    "deno": "2.9.6 (stable, release, x86_64-pc-windows-msvc)",
+  "artifact": "Local generated Codexa Core with npm:jetrouter@0.2.0",
+  "provenance": {
+    "thunder": {
+      "repository": "https://github.com/Huruf-Tech/thunder",
+      "revision": "d9c8e45c029655832c338429d9f258094a0590fb",
+      "documentation": [
+        "https://thunder.huruftech.com/docs/routes",
+        "https://thunder.huruftech.com/docs/hooks"
+      ],
+      "dispatcher": "core/http/discover.ts",
+      "dispatcherSha256": "bd54c32cf7952ff526ad5cedccab52ff51228a27dab2252cfc40764b36741659"
+    },
     "frameworks": {
-      "codexa": "jsr:@codexa/core@1.0.7",
-      "deno": "Deno.serve + Zod",
-      "oak": "jsr:@oak/oak@^17",
-      "express": "express@^5.1.0",
-      "hono": "jsr:@hono/hono@^4",
-      "thunder": "github:Huruf-Tech/thunder"
+      "autocannon": "8.0.0",
+      "express": "5.3.0",
+      "fastify": "5.12.7",
+      "hono": "4.13.13",
+      "zod": "4.6.7",
+      "@nestjs/core": "12.2.0",
+      "@nestjs/common": "12.2.0",
+      "@nestjs/platform-express": "12.2.0",
+      "reflect-metadata": "0.2.2",
+      "rxjs": "7.8.2",
+      "oak": "17.2.0"
+    },
+    "codexa": {
+      "artifact": "../../dist/src/lib/http/mod.js",
+      "engine": "jetrouter@0.2.0",
+      "status": "local unreleased build"
     }
   },
+  "coreSourceSha256": "d7296dc4f353309e5b980780c3bc84936be6aa541a67b564501b1ac585592170",
+  "buildSha256": "094a52c15720eae1e3a8b12f92a4ba1f70e692508825ccd1bd6d72da3def4bd4",
   "endpoints": [
     "GET /hello",
     "GET /users/:id",
-    "POST /users"
+    "GET varied deep routes (1,000 registrations)",
+    "POST JSON /users"
   ],
   "endpointKeys": [
     "hello",
-    "users-get",
-    "users-post"
+    "user",
+    "deep",
+    "post"
   ],
   "results": [
     {
       "key": "codexa",
-      "label": "Codexa Core",
-      "version": "jsr:@codexa/core@1.0.7",
+      "label": "Codexa Core + JetRouter / Deno",
+      "version": {
+        "codexa": "1.0.10 (local build)",
+        "jetrouter": "npm:jetrouter@0.2.0"
+      },
+      "runtime": "Deno 2.9.7",
       "endpoints": {
-        "users-post": {
-          "requestsPerSecAvg": 17062.8,
-          "requestsPerSecMax": 19824,
-          "latencyAvgMs": 2.52,
-          "latencyP99Ms": 12,
-          "throughputAvgMBs": 3.596,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 183055
-        },
         "hello": {
-          "requestsPerSecAvg": 25133.82,
-          "requestsPerSecMax": 26214,
-          "latencyAvgMs": 1.49,
-          "latencyP99Ms": 8,
-          "throughputAvgMBs": 3.212,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 266068
-        },
-        "users-get": {
-          "requestsPerSecAvg": 23832,
-          "requestsPerSecMax": 25177,
-          "latencyAvgMs": 1.52,
+          "requestsPerSecAvg": 22469.043828227976,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 11795.146380794817,
+          "requestsPerSecMax": 22677.225274831104,
+          "cvPercent": 26.772269858363263,
+          "latencyAvgMs": 1.67,
           "latencyP99Ms": 9,
-          "throughputAvgMBs": 3.068,
+          "clientOneCorePercent": 92.33771571586395,
+          "serverOneCorePercent": 108.97714008423667,
+          "clientWarningRuns": 2,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 242351
-        }
-      }
-    },
-    {
-      "key": "deno",
-      "label": "Deno (no framework)",
-      "version": "Deno.serve + Zod",
-      "endpoints": {
-        "users-post": {
-          "requestsPerSecAvg": 26920,
-          "requestsPerSecMax": 28132,
-          "latencyAvgMs": 1.41,
-          "latencyP99Ms": 4,
-          "throughputAvgMBs": 5.288,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 285576
+          "totalRequests": 570633,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 118332,
+              "wallRequestsPerSecond": 11795.146380794817,
+              "durationMs": 10032.2621,
+              "clientOneCorePercent": 70.23341226302291,
+              "serverOneCorePercent": 80.16669012251424,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 21.71353711304348,
+                "max": 49.840127,
+                "p99": 34.045951
+              },
+              "requestsPerSecAvg": 11833.8,
+              "latencyAvgMs": 3.72,
+              "latencyP99Ms": 22,
+              "throughputAvgBytes": 1408128,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 118332,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 225061,
+              "wallRequestsPerSecond": 22469.043828227976,
+              "durationMs": 10016.492100000032,
+              "clientOneCorePercent": 92.33771571586395,
+              "serverOneCorePercent": 110.12273494244286,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.925029970649895,
+                "max": 48.398335,
+                "p99": 34.144255
+              },
+              "requestsPerSecAvg": 22505.6,
+              "latencyAvgMs": 1.67,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 2677964.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 225061,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 227240,
+              "wallRequestsPerSecond": 22677.225274831104,
+              "durationMs": 10020.62630000012,
+              "clientOneCorePercent": 92.62894076790279,
+              "serverOneCorePercent": 108.97714008423667,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.748513663201663,
+                "max": 37.683199,
+                "p99": 27.836415
+              },
+              "requestsPerSecAvg": 22724.8,
+              "latencyAvgMs": 1.63,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 2704588.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 227240,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round3-hello.json"
+            }
+          ]
         },
-        "hello": {
-          "requestsPerSecAvg": 29212.8,
-          "requestsPerSecMax": 31645,
-          "latencyAvgMs": 1.26,
-          "latencyP99Ms": 4,
-          "throughputAvgMBs": 3.315,
+        "user": {
+          "requestsPerSecAvg": 24224.107223137722,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 23221.78458691959,
+          "requestsPerSecMax": 24472.150475195103,
+          "cvPercent": 2.2547907454835805,
+          "latencyAvgMs": 1.56,
+          "latencyP99Ms": 9,
+          "clientOneCorePercent": 92.73231721054809,
+          "serverOneCorePercent": 112.38641666799451,
+          "clientWarningRuns": 3,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 294123
+          "totalRequests": 744463,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 269508,
+              "wallRequestsPerSecond": 24472.150475195103,
+              "durationMs": 11012.845,
+              "clientOneCorePercent": 93.36370392936612,
+              "serverOneCorePercent": 111.48411586028504,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.263138715867157,
+                "max": 31.440895,
+                "p99": 26.722303
+              },
+              "requestsPerSecAvg": 24502.55,
+              "latencyAvgMs": 1.56,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 2940276.37,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 269508,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 232511,
+              "wallRequestsPerSecond": 23221.78458691959,
+              "durationMs": 10012.624100000015,
+              "clientOneCorePercent": 91.1349503273571,
+              "serverOneCorePercent": 114.90963259431084,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.38911738241309,
+                "max": 28.671999,
+                "p99": 25.739263
+              },
+              "requestsPerSecAvg": 23251.2,
+              "latencyAvgMs": 1.62,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 2790041.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 232511,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 242444,
+              "wallRequestsPerSecond": 24224.107223137722,
+              "durationMs": 10008.377100000158,
+              "clientOneCorePercent": 92.73231721054809,
+              "serverOneCorePercent": 112.38641666799451,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.455424,
+                "max": 27.967487,
+                "p99": 26.181631
+              },
+              "requestsPerSecAvg": 24246.4,
+              "latencyAvgMs": 1.53,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2908979.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 242444,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round3-user.json"
+            }
+          ]
         },
-        "users-get": {
-          "requestsPerSecAvg": 28460.8,
-          "requestsPerSecMax": 31007,
-          "latencyAvgMs": 1.29,
-          "latencyP99Ms": 4,
-          "throughputAvgMBs": 3.257,
+        "deep": {
+          "requestsPerSecAvg": 17621.75192912607,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 14784.238244329756,
+          "requestsPerSecMax": 23745.595038640946,
+          "cvPercent": 19.97928145902691,
+          "latencyAvgMs": 2.25,
+          "latencyP99Ms": 14,
+          "clientOneCorePercent": 81.6666631791826,
+          "serverOneCorePercent": 100.39094663833998,
+          "clientWarningRuns": 1,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 286205
-        }
-      }
-    },
-    {
-      "key": "oak",
-      "label": "Oak (Deno)",
-      "version": "jsr:@oak/oak@^17",
-      "endpoints": {
-        "users-post": {
-          "requestsPerSecAvg": 14574.91,
-          "requestsPerSecMax": 16423,
-          "latencyAvgMs": 2.83,
-          "latencyP99Ms": 6,
-          "throughputAvgMBs": 3.071,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 153301
+          "totalRequests": 565826,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 149331,
+              "wallRequestsPerSecond": 14784.238244329756,
+              "durationMs": 10100.6895,
+              "clientOneCorePercent": 73.48013222265668,
+              "serverOneCorePercent": 90.77163550988756,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.77166579253112,
+                "max": 67.960831,
+                "p99": 32.915455
+              },
+              "requestsPerSecAvg": 14934.8,
+              "latencyAvgMs": 2.83,
+              "latencyP99Ms": 20,
+              "throughputAvgBytes": 2589747.21,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 149331,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 238803,
+              "wallRequestsPerSecond": 23745.595038640946,
+              "durationMs": 10056.728400000022,
+              "clientOneCorePercent": 88.5576267526523,
+              "serverOneCorePercent": 114.02519321474043,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.121071483870967,
+                "max": 26.968063,
+                "p99": 24.707071
+              },
+              "requestsPerSecAvg": 23881.6,
+              "latencyAvgMs": 1.47,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 4142284.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 238803,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 177692,
+              "wallRequestsPerSecond": 17621.75192912607,
+              "durationMs": 10083.67389999982,
+              "clientOneCorePercent": 81.6666631791826,
+              "serverOneCorePercent": 100.39094663833998,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.262571359026367,
+                "max": 32.866303,
+                "p99": 26.329087
+              },
+              "requestsPerSecAvg": 17770.8,
+              "latencyAvgMs": 2.25,
+              "latencyP99Ms": 14,
+              "throughputAvgBytes": 3081830.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 177692,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round3-deep.json"
+            }
+          ]
         },
-        "hello": {
-          "requestsPerSecAvg": 20972.37,
-          "requestsPerSecMax": 22602,
-          "latencyAvgMs": 2.01,
-          "latencyP99Ms": 5,
-          "throughputAvgMBs": 2.68,
+        "post": {
+          "requestsPerSecAvg": 20582.39154393731,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 12303.188109647745,
+          "requestsPerSecMax": 21683.374066249497,
+          "cvPercent": 23.016142251251743,
+          "latencyAvgMs": 1.8,
+          "latencyP99Ms": 10,
+          "clientOneCorePercent": 86.16042825968883,
+          "serverOneCorePercent": 107.39341907392428,
+          "clientWarningRuns": 2,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 223163
-        },
-        "users-get": {
-          "requestsPerSecAvg": 19962.91,
-          "requestsPerSecMax": 22113,
-          "latencyAvgMs": 2.12,
-          "latencyP99Ms": 5,
-          "throughputAvgMBs": 2.57,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 212920
+          "totalRequests": 580262,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 135551,
+              "wallRequestsPerSecond": 12303.188109647745,
+              "durationMs": 11017.5508,
+              "clientOneCorePercent": 76.16030234233183,
+              "serverOneCorePercent": 92.15564038705877,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.2320675359116,
+                "max": 35.127295,
+                "p99": 26.296319
+              },
+              "requestsPerSecAvg": 12323.28,
+              "latencyAvgMs": 3.6,
+              "latencyP99Ms": 15,
+              "throughputAvgBytes": 2218309.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 135551,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 238697,
+              "wallRequestsPerSecond": 21683.374066249497,
+              "durationMs": 11008.29600000009,
+              "clientOneCorePercent": 86.72550229390563,
+              "serverOneCorePercent": 110.55713356416209,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.15722917647059,
+                "max": 30.932991,
+                "p99": 24.575999
+              },
+              "requestsPerSecAvg": 21701.1,
+              "latencyAvgMs": 1.64,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 3906187.64,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 238697,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 206014,
+              "wallRequestsPerSecond": 20582.39154393731,
+              "durationMs": 10009.235300000058,
+              "clientOneCorePercent": 86.16042825968883,
+              "serverOneCorePercent": 107.39341907392428,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.288853333333332,
+                "max": 31.883263,
+                "p99": 26.214399
+              },
+              "requestsPerSecAvg": 20603.2,
+              "latencyAvgMs": 1.8,
+              "latencyP99Ms": 10,
+              "throughputAvgBytes": 3708620.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 206014,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/codexa-round3-post.json"
+            }
+          ]
         }
       }
     },
     {
       "key": "express",
-      "label": "Express (Node)",
-      "version": "express@^5.1.0",
+      "label": "Express / Node",
+      "version": {
+        "express": "5.3.0"
+      },
+      "runtime": "Node 24.21.0",
       "endpoints": {
-        "users-post": {
-          "requestsPerSecAvg": 9093.46,
-          "requestsPerSecMax": 9887,
-          "latencyAvgMs": 4.98,
-          "latencyP99Ms": 9,
-          "throughputAvgMBs": 2.888,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 98030
-        },
         "hello": {
-          "requestsPerSecAvg": 13297.1,
-          "requestsPerSecMax": 13442,
-          "latencyAvgMs": 3.34,
+          "requestsPerSecAvg": 16395.587461253977,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 8693.121029873984,
+          "requestsPerSecMax": 18130.857119998742,
+          "cvPercent": 28.4706183707264,
+          "latencyAvgMs": 2.48,
           "latencyP99Ms": 6,
-          "throughputAvgMBs": 3.106,
+          "clientOneCorePercent": 83.32643942472629,
+          "serverOneCorePercent": 96.92457822845647,
+          "clientWarningRuns": 1,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 135457
+          "totalRequests": 467150,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 87095,
+              "wallRequestsPerSecond": 8693.121029873984,
+              "durationMs": 10018.8413,
+              "clientOneCorePercent": 62.85157945360408,
+              "serverOneCorePercent": 85.1262484023239,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.400827419222903,
+                "max": 35.291135,
+                "p99": 30.343167
+              },
+              "requestsPerSecAvg": 8710.21,
+              "latencyAvgMs": 5.23,
+              "latencyP99Ms": 28,
+              "throughputAvgBytes": 1576396.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 87095,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 180491,
+              "wallRequestsPerSecond": 16395.587461253977,
+              "durationMs": 11008.510699999984,
+              "clientOneCorePercent": 83.32643942472629,
+              "serverOneCorePercent": 96.92457822845647,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.025642978102187,
+                "max": 31.932415,
+                "p99": 20.283391
+              },
+              "requestsPerSecAvg": 16409.46,
+              "latencyAvgMs": 2.48,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 2969879.28,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 180491,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 199564,
+              "wallRequestsPerSecond": 18130.857119998742,
+              "durationMs": 11006.87069999997,
+              "clientOneCorePercent": 87.15465332031225,
+              "serverOneCorePercent": 99.77504469892934,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 19.999924925318762,
+                "max": 20.250623,
+                "p99": 20.103167
+              },
+              "requestsPerSecAvg": 18141.82,
+              "latencyAvgMs": 2.19,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3284154.19,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 199564,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round3-hello.json"
+            }
+          ]
         },
-        "users-get": {
-          "requestsPerSecAvg": 12027.28,
-          "requestsPerSecMax": 12670,
-          "latencyAvgMs": 3.62,
+        "user": {
+          "requestsPerSecAvg": 15649.241277856241,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 12778.078511758502,
+          "requestsPerSecMax": 16052.449939664333,
+          "cvPercent": 9.832600724672812,
+          "latencyAvgMs": 2.62,
           "latencyP99Ms": 7,
-          "throughputAvgMBs": 2.821,
+          "clientOneCorePercent": 82.61094780192715,
+          "serverOneCorePercent": 95.76885011684627,
+          "clientWarningRuns": 0,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 130512
+          "totalRequests": 489655,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 140695,
+              "wallRequestsPerSecond": 12778.078511758502,
+              "durationMs": 11010.653900000005,
+              "clientOneCorePercent": 78.18790853102735,
+              "serverOneCorePercent": 95.76885011684627,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.15210956330275,
+                "max": 34.799615,
+                "p99": 28.000255
+              },
+              "requestsPerSecAvg": 12789.64,
+              "latencyAvgMs": 3.35,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2327877.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 140695,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 172251,
+              "wallRequestsPerSecond": 15649.241277856241,
+              "durationMs": 11006.987300000037,
+              "clientOneCorePercent": 83.18352470525672,
+              "serverOneCorePercent": 97.50815746342104,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.001775213114755,
+                "max": 21.282815,
+                "p99": 20.267007
+              },
+              "requestsPerSecAvg": 15660.37,
+              "latencyAvgMs": 2.62,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 2849605.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 172251,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 176709,
+              "wallRequestsPerSecond": 16052.449939664333,
+              "durationMs": 11008.226199999917,
+              "clientOneCorePercent": 82.61094780192715,
+              "serverOneCorePercent": 94.93719200417225,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.130404521100917,
+                "max": 34.242559,
+                "p99": 23.822335
+              },
+              "requestsPerSecAvg": 16062.91,
+              "latencyAvgMs": 2.53,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 2923566.55,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 176709,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 4978.590748673488,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 1097.8064273514399,
+          "requestsPerSecMax": 5571.470568282038,
+          "cvPercent": 51.09901992426269,
+          "latencyAvgMs": 9.5,
+          "latencyP99Ms": 26,
+          "clientOneCorePercent": 38.14870026998446,
+          "serverOneCorePercent": 96.15250043167882,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 127787,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 11133,
+              "wallRequestsPerSecond": 1097.8064273514399,
+              "durationMs": 10141.132099999995,
+              "clientOneCorePercent": 18.646833325443033,
+              "serverOneCorePercent": 74.01831017013646,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.736370428274427,
+                "max": 34.996223,
+                "p99": 30.932991
+              },
+              "requestsPerSecAvg": 1113.3,
+              "latencyAvgMs": 44.66,
+              "latencyP99Ms": 109,
+              "throughputAvgBytes": 262054.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 11133,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 55060,
+              "wallRequestsPerSecond": 4978.590748673488,
+              "durationMs": 11059.3544999999,
+              "clientOneCorePercent": 38.14870026998446,
+              "serverOneCorePercent": 96.15250043167882,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.12343794871795,
+                "max": 46.301183,
+                "p99": 22.822911
+              },
+              "requestsPerSecAvg": 5005.64,
+              "latencyAvgMs": 9.5,
+              "latencyP99Ms": 26,
+              "throughputAvgBytes": 1178344.73,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 55060,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 61594,
+              "wallRequestsPerSecond": 5571.470568282038,
+              "durationMs": 11055.25,
+              "clientOneCorePercent": 40.98505235069311,
+              "serverOneCorePercent": 97.8609191904061,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.024387270072992,
+                "max": 32.980991,
+                "p99": 20.398079
+              },
+              "requestsPerSecAvg": 5599.46,
+              "latencyAvgMs": 8.44,
+              "latencyP99Ms": 14,
+              "throughputAvgBytes": 1318213.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 61594,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 10834.67337852522,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 5025.584069473166,
+          "requestsPerSecMax": 12679.79681256521,
+          "cvPercent": 34.28349180310194,
+          "latencyAvgMs": 4.07,
+          "latencyP99Ms": 12,
+          "clientOneCorePercent": 69.26843511722002,
+          "serverOneCorePercent": 97.89504585053993,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 314202,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 55357,
+              "wallRequestsPerSecond": 5025.584069473166,
+              "durationMs": 11015.038100000005,
+              "clientOneCorePercent": 46.23678968482186,
+              "serverOneCorePercent": 83.21352034988365,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.347850903703705,
+                "max": 45.580287,
+                "p99": 28.868607
+              },
+              "requestsPerSecAvg": 5033.37,
+              "latencyAvgMs": 9.44,
+              "latencyP99Ms": 39,
+              "throughputAvgBytes": 1217861.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 55357,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 119267,
+              "wallRequestsPerSecond": 10834.67337852522,
+              "durationMs": 11007.89989999996,
+              "clientOneCorePercent": 69.26843511722002,
+              "serverOneCorePercent": 97.89504585053993,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.084068336996335,
+                "max": 34.635775,
+                "p99": 21.626879
+              },
+              "requestsPerSecAvg": 10843.1,
+              "latencyAvgMs": 4.07,
+              "latencyP99Ms": 12,
+              "throughputAvgBytes": 2623813.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 119267,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 139578,
+              "wallRequestsPerSecond": 12679.79681256521,
+              "durationMs": 11007.905099999974,
+              "clientOneCorePercent": 76.79935394791893,
+              "serverOneCorePercent": 102.16651867505881,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.001954273224044,
+                "max": 21.381119,
+                "p99": 20.135935
+              },
+              "requestsPerSecAvg": 12689.1,
+              "latencyAvgMs": 3.36,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 3070603.64,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 139578,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/express-round3-post.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "oak",
+      "label": "Oak / Deno",
+      "version": {
+        "oak": "17.2.0"
+      },
+      "runtime": "Deno 2.9.7",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 14262.818790817459,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 11596.015599593136,
+          "requestsPerSecMax": 16505.816842895452,
+          "cvPercent": 14.211651398901385,
+          "latencyAvgMs": 2.94,
+          "latencyP99Ms": 10,
+          "clientOneCorePercent": 74.51770111947475,
+          "serverOneCorePercent": 93.6491848861041,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 449881,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 127660,
+              "wallRequestsPerSecond": 11596.015599593136,
+              "durationMs": 11008.953799999988,
+              "clientOneCorePercent": 64.72004633174141,
+              "serverOneCorePercent": 84.57144632022255,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.193219653775323,
+                "max": 33.374207,
+                "p99": 26.755071
+              },
+              "requestsPerSecAvg": 11606.55,
+              "latencyAvgMs": 3.75,
+              "latencyP99Ms": 25,
+              "throughputAvgBytes": 1554944,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 127660,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 157026,
+              "wallRequestsPerSecond": 14262.818790817459,
+              "durationMs": 11009.464699999895,
+              "clientOneCorePercent": 74.51770111947475,
+              "serverOneCorePercent": 93.6491848861041,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.08517860805861,
+                "max": 35.291135,
+                "p99": 22.102015
+              },
+              "requestsPerSecAvg": 14274.91,
+              "latencyAvgMs": 2.94,
+              "latencyP99Ms": 10,
+              "throughputAvgBytes": 1913064.73,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 157026,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 165195,
+              "wallRequestsPerSecond": 16505.816842895452,
+              "durationMs": 10008.289899999974,
+              "clientOneCorePercent": 75.71723117253048,
+              "serverOneCorePercent": 97.3961704772856,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.014075887550202,
+                "max": 25.378815,
+                "p99": 20.512767
+              },
+              "requestsPerSecAvg": 16520.41,
+              "latencyAvgMs": 2.43,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2213529.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 165195,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round3-hello.json"
+            }
+          ]
+        },
+        "user": {
+          "requestsPerSecAvg": 14819.650607739886,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 11264.279571430088,
+          "requestsPerSecMax": 17501.692786232386,
+          "cvPercent": 17.58414525755154,
+          "latencyAvgMs": 2.8,
+          "latencyP99Ms": 8,
+          "clientOneCorePercent": 79.0117448479953,
+          "serverOneCorePercent": 94.6102622243734,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 479964,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 124080,
+              "wallRequestsPerSecond": 11264.279571430088,
+              "durationMs": 11015.351600000024,
+              "clientOneCorePercent": 61.423368456073476,
+              "serverOneCorePercent": 84.6672939736572,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.51451358504673,
+                "max": 42.860543,
+                "p99": 31.326207
+              },
+              "requestsPerSecAvg": 11279.91,
+              "latencyAvgMs": 3.85,
+              "latencyP99Ms": 30,
+              "throughputAvgBytes": 1522862.55,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 124080,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 163217,
+              "wallRequestsPerSecond": 14819.650607739886,
+              "durationMs": 11013.55249999999,
+              "clientOneCorePercent": 79.0117448479953,
+              "serverOneCorePercent": 94.6102622243734,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.050637547445255,
+                "max": 33.144831,
+                "p99": 21.086207
+              },
+              "requestsPerSecAvg": 14837.46,
+              "latencyAvgMs": 2.8,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2003269.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 163217,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 192667,
+              "wallRequestsPerSecond": 17501.692786232386,
+              "durationMs": 11008.47800000012,
+              "clientOneCorePercent": 81.75517087829854,
+              "serverOneCorePercent": 100.1766454538465,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.00768419672131,
+                "max": 22.478847,
+                "p99": 20.381695
+              },
+              "requestsPerSecAvg": 17516,
+              "latencyAvgMs": 2.22,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 2364416,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 192667,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 4616.202434072408,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 4568.1234982131355,
+          "requestsPerSecMax": 5624.530186421845,
+          "cvPercent": 9.866897872435368,
+          "latencyAvgMs": 10.26,
+          "latencyP99Ms": 26,
+          "clientOneCorePercent": 37.721022947115515,
+          "serverOneCorePercent": 96.35845235918377,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 163758,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 51083,
+              "wallRequestsPerSecond": 4616.202434072408,
+              "durationMs": 11066.022499999992,
+              "clientOneCorePercent": 35.85750887457533,
+              "serverOneCorePercent": 96.35845235918377,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.06162392687386,
+                "max": 34.603007,
+                "p99": 21.610495
+              },
+              "requestsPerSecAvg": 4644.28,
+              "latencyAvgMs": 10.26,
+              "latencyP99Ms": 31,
+              "throughputAvgBytes": 874984.73,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 51083,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 50512,
+              "wallRequestsPerSecond": 4568.1234982131355,
+              "durationMs": 11057.494399999967,
+              "clientOneCorePercent": 37.721022947115515,
+              "serverOneCorePercent": 95.60519916599081,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.04851480291971,
+                "max": 27.590655,
+                "p99": 21.463039
+              },
+              "requestsPerSecAvg": 4592.91,
+              "latencyAvgMs": 10.41,
+              "latencyP99Ms": 26,
+              "throughputAvgBytes": 865349.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 50512,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 62163,
+              "wallRequestsPerSecond": 5624.530186421845,
+              "durationMs": 11052.123099999968,
+              "clientOneCorePercent": 38.31842951514005,
+              "serverOneCorePercent": 99.32011115967605,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.00634124590164,
+                "max": 23.330815,
+                "p99": 20.316159
+              },
+              "requestsPerSecAvg": 5652.19,
+              "latencyAvgMs": 8.38,
+              "latencyP99Ms": 12,
+              "throughputAvgBytes": 1064843.64,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 62163,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 12811.603652191272,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 8109.702035007048,
+          "requestsPerSecMax": 13919.255509416185,
+          "cvPercent": 21.685950346195902,
+          "latencyAvgMs": 3.46,
+          "latencyP99Ms": 8,
+          "clientOneCorePercent": 73.37601881884666,
+          "serverOneCorePercent": 98.88335360033471,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 375528,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 81241,
+              "wallRequestsPerSecond": 8109.702035007048,
+              "durationMs": 10017.754,
+              "clientOneCorePercent": 55.53140953551065,
+              "serverOneCorePercent": 81.6689685671133,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.33713218737271,
+                "max": 31.293439,
+                "p99": 27.787263
+              },
+              "requestsPerSecAvg": 8124.5,
+              "latencyAvgMs": 5.72,
+              "latencyP99Ms": 47,
+              "throughputAvgBytes": 1584294.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 81241,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 141061,
+              "wallRequestsPerSecond": 12811.603652191272,
+              "durationMs": 11010.409299999941,
+              "clientOneCorePercent": 73.37601881884666,
+              "serverOneCorePercent": 98.88335360033471,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.005087825136613,
+                "max": 22.216703,
+                "p99": 20.381695
+              },
+              "requestsPerSecAvg": 12825.1,
+              "latencyAvgMs": 3.46,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2500701.1,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 141061,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 153226,
+              "wallRequestsPerSecond": 13919.255509416185,
+              "durationMs": 11008.203699999955,
+              "clientOneCorePercent": 79.05922017049917,
+              "serverOneCorePercent": 101.3074858912798,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.003446440801458,
+                "max": 22.740991,
+                "p99": 20.234239
+              },
+              "requestsPerSecAvg": 13930.55,
+              "latencyAvgMs": 3.19,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 2716672,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 153226,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/oak-round3-post.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "fastify",
+      "label": "Fastify / Node",
+      "version": {
+        "fastify": "5.12.7"
+      },
+      "runtime": "Node 24.21.0",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 22974.74121110461,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 21823.28862094763,
+          "requestsPerSecMax": 25313.397125194828,
+          "cvPercent": 6.213176143223661,
+          "latencyAvgMs": 1.54,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 97.5097256958024,
+          "serverOneCorePercent": 96.93874756464331,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 746495,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 240229,
+              "wallRequestsPerSecond": 21823.28862094763,
+              "durationMs": 11007.919300000009,
+              "clientOneCorePercent": 94.3956774828463,
+              "serverOneCorePercent": 96.64607245439785,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.045375532846716,
+                "max": 29.655039,
+                "p99": 21.184511
+              },
+              "requestsPerSecAvg": 21840.73,
+              "latencyAvgMs": 1.75,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3974702.55,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 240229,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 252909,
+              "wallRequestsPerSecond": 22974.74121110461,
+              "durationMs": 11008.132700000075,
+              "clientOneCorePercent": 97.5097256958024,
+              "serverOneCorePercent": 96.93874756464331,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.041518715328465,
+                "max": 23.232511,
+                "p99": 21.577727
+              },
+              "requestsPerSecAvg": 22991.28,
+              "latencyAvgMs": 1.54,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4184808.73,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 252909,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 253357,
+              "wallRequestsPerSecond": 25313.397125194828,
+              "durationMs": 10008.810700000031,
+              "clientOneCorePercent": 100.07182971299446,
+              "serverOneCorePercent": 98.96460900302802,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.053109440643862,
+                "max": 21.692415,
+                "p99": 21.381119
+              },
+              "requestsPerSecAvg": 25337.6,
+              "latencyAvgMs": 1.31,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 4610457.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 253357,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round3-hello.json"
+            }
+          ]
+        },
+        "user": {
+          "requestsPerSecAvg": 23435.50705633612,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 20917.71775739045,
+          "requestsPerSecMax": 25079.68748894931,
+          "cvPercent": 7.395117558054985,
+          "latencyAvgMs": 1.48,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 96.38584778471404,
+          "serverOneCorePercent": 96.52289204133007,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 739299,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 230283,
+              "wallRequestsPerSecond": 20917.71775739045,
+              "durationMs": 11008.992599999998,
+              "clientOneCorePercent": 92.81503195851,
+              "serverOneCorePercent": 93.09348093145793,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.130389489908257,
+                "max": 32.784383,
+                "p99": 22.691839
+              },
+              "requestsPerSecAvg": 20934.19,
+              "latencyAvgMs": 1.79,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 3830970.19,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 230283,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 257950,
+              "wallRequestsPerSecond": 23435.50705633612,
+              "durationMs": 11006.802600000054,
+              "clientOneCorePercent": 96.38584778471404,
+              "serverOneCorePercent": 96.52289204133007,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.091465142857142,
+                "max": 29.556735,
+                "p99": 22.069247
+              },
+              "requestsPerSecAvg": 23452.37,
+              "latencyAvgMs": 1.48,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4291397.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 257950,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 251066,
+              "wallRequestsPerSecond": 25079.68748894931,
+              "durationMs": 10010.73080000002,
+              "clientOneCorePercent": 100.981638623226,
+              "serverOneCorePercent": 100.03285552420982,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.054757730382292,
+                "max": 22.364159,
+                "p99": 21.331967
+              },
+              "requestsPerSecAvg": 25105.6,
+              "latencyAvgMs": 1.33,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 4594483.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 251066,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 24631.91467318551,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 17478.8237622187,
+          "requestsPerSecMax": 24665.67410113727,
+          "cvPercent": 15.184933739973225,
+          "latencyAvgMs": 1.35,
+          "latencyP99Ms": 3,
+          "clientOneCorePercent": 98.0988611590551,
+          "serverOneCorePercent": 98.22387996464772,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 714469,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 193906,
+              "wallRequestsPerSecond": 17478.8237622187,
+              "durationMs": 11093.767099999997,
+              "clientOneCorePercent": 87.74296334380412,
+              "serverOneCorePercent": 86.74068935353702,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.067269967093235,
+                "max": 29.458431,
+                "p99": 22.478847
+              },
+              "requestsPerSecAvg": 17629.1,
+              "latencyAvgMs": 2.3,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 4167959.28,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 193906,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 272634,
+              "wallRequestsPerSecond": 24665.67410113727,
+              "durationMs": 11053.174499999965,
+              "clientOneCorePercent": 98.53277897675491,
+              "serverOneCorePercent": 98.22387996464772,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.01756234608379,
+                "max": 22.003711,
+                "p99": 21.135359
+              },
+              "requestsPerSecAvg": 24786.19,
+              "latencyAvgMs": 1.35,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 5859700.37,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 272634,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 247929,
+              "wallRequestsPerSecond": 24631.91467318551,
+              "durationMs": 10065.356399999931,
+              "clientOneCorePercent": 98.0988611590551,
+              "serverOneCorePercent": 98.56348537967847,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.034374939759033,
+                "max": 26.591231,
+                "p99": 21.331967
+              },
+              "requestsPerSecAvg": 24793.6,
+              "latencyAvgMs": 1.34,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 5861376,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 247929,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 16835.881198600942,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 15438.473471846737,
+          "requestsPerSecMax": 19001.043879126133,
+          "cvPercent": 8.575035511782731,
+          "latencyAvgMs": 2.45,
+          "latencyP99Ms": 8,
+          "clientOneCorePercent": 85.87176933016862,
+          "serverOneCorePercent": 96.93007766467977,
+          "clientWarningRuns": 2,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 564476,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 169988,
+              "wallRequestsPerSecond": 15438.473471846737,
+              "durationMs": 11010.674100000004,
+              "clientOneCorePercent": 83.88223932629154,
+              "serverOneCorePercent": 93.78624364300352,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.048130340036565,
+                "max": 32.489471,
+                "p99": 21.938175
+              },
+              "requestsPerSecAvg": 15453.82,
+              "latencyAvgMs": 2.72,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 3755287.28,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 169988,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 185334,
+              "wallRequestsPerSecond": 16835.881198600942,
+              "durationMs": 11008.274399999995,
+              "clientOneCorePercent": 85.87176933016862,
+              "serverOneCorePercent": 96.93007766467977,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.06199833272395,
+                "max": 27.918335,
+                "p99": 21.495807
+              },
+              "requestsPerSecAvg": 16849.82,
+              "latencyAvgMs": 2.45,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 4094138.19,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 185334,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 209154,
+              "wallRequestsPerSecond": 19001.043879126133,
+              "durationMs": 11007.50049999985,
+              "clientOneCorePercent": 90.42016396002104,
+              "serverOneCorePercent": 100.06333802194021,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.000223358834244,
+                "max": 20.168703,
+                "p99": 20.086783
+              },
+              "requestsPerSecAvg": 19014.55,
+              "latencyAvgMs": 2.14,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4620101.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 209154,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/fastify-round3-post.json"
+            }
+          ]
         }
       }
     },
     {
       "key": "hono",
-      "label": "Hono (Deno)",
-      "version": "jsr:@hono/hono@^4",
+      "label": "Hono / Deno",
+      "version": {},
+      "runtime": "Deno 2.9.7",
       "endpoints": {
-        "users-post": {
-          "requestsPerSecAvg": 23912,
-          "requestsPerSecMax": 27097,
-          "latencyAvgMs": 1.52,
-          "latencyP99Ms": 5,
-          "throughputAvgMBs": 4.697,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 264723
-        },
         "hello": {
-          "requestsPerSecAvg": 28281.6,
-          "requestsPerSecMax": 29807,
-          "latencyAvgMs": 1.32,
-          "latencyP99Ms": 4,
-          "throughputAvgMBs": 3.21,
+          "requestsPerSecAvg": 30064.48899152232,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 26393.215844314404,
+          "requestsPerSecMax": 30255.430940682247,
+          "cvPercent": 6.149139044977651,
+          "latencyAvgMs": 1.16,
+          "latencyP99Ms": 3,
+          "clientOneCorePercent": 99.70663439995893,
+          "serverOneCorePercent": 96.88669779189696,
+          "clientWarningRuns": 3,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 258838
+          "totalRequests": 868285,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 302959,
+              "wallRequestsPerSecond": 30255.430940682247,
+              "durationMs": 10013.375800000038,
+              "clientOneCorePercent": 99.70663439995893,
+              "serverOneCorePercent": 96.88669779189696,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.51415018930041,
+                "max": 49.840127,
+                "p99": 23.199743
+              },
+              "requestsPerSecAvg": 30297.6,
+              "latencyAvgMs": 1.16,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 3605094.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 302959,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 301037,
+              "wallRequestsPerSecond": 30064.48899152232,
+              "durationMs": 10013.042300000088,
+              "clientOneCorePercent": 100.18933007004188,
+              "serverOneCorePercent": 99.23361255942457,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.451831606557377,
+                "max": 25.935871,
+                "p99": 21.970943
+              },
+              "requestsPerSecAvg": 30104,
+              "latencyAvgMs": 1.11,
+              "latencyP99Ms": 2,
+              "throughputAvgBytes": 3582361.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 301037,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 264289,
+              "wallRequestsPerSecond": 26393.215844314404,
+              "durationMs": 10013.520199999912,
+              "clientOneCorePercent": 97.21855856445055,
+              "serverOneCorePercent": 94.69949341462578,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.720440298755186,
+                "max": 36.700159,
+                "p99": 27.492351
+              },
+              "requestsPerSecAvg": 26428.8,
+              "latencyAvgMs": 1.34,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3145113.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 264289,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round3-hello.json"
+            }
+          ]
         },
-        "users-get": {
-          "requestsPerSecAvg": 24528,
-          "requestsPerSecMax": 28068,
-          "latencyAvgMs": 1.56,
-          "latencyP99Ms": 5,
-          "throughputAvgMBs": 2.807,
+        "user": {
+          "requestsPerSecAvg": 25660.13593846558,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 23505.646671970106,
+          "requestsPerSecMax": 29863.12502129443,
+          "cvPercent": 10.021495338031722,
+          "latencyAvgMs": 1.38,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 97.52851165888207,
+          "serverOneCorePercent": 94.87653717515569,
+          "clientWarningRuns": 3,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 261527
+          "totalRequests": 791445,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 235553,
+              "wallRequestsPerSecond": 23505.646671970106,
+              "durationMs": 10021.12400000001,
+              "clientOneCorePercent": 91.1973547079149,
+              "serverOneCorePercent": 87.7726134360006,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 21.73309106086956,
+                "max": 111.607807,
+                "p99": 46.170111
+              },
+              "requestsPerSecAvg": 23558,
+              "latencyAvgMs": 1.64,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 2826393.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 235553,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 298971,
+              "wallRequestsPerSecond": 29863.12502129443,
+              "durationMs": 10011.376900000032,
+              "clientOneCorePercent": 100.36581481614151,
+              "serverOneCorePercent": 98.77436888022127,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.353709453061224,
+                "max": 22.577151,
+                "p99": 22.118399
+              },
+              "requestsPerSecAvg": 29897.6,
+              "latencyAvgMs": 1.09,
+              "latencyP99Ms": 2,
+              "throughputAvgBytes": 3587686.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 298971,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 256921,
+              "wallRequestsPerSecond": 25660.13593846558,
+              "durationMs": 10012.45669999998,
+              "clientOneCorePercent": 97.52851165888207,
+              "serverOneCorePercent": 94.87653717515569,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.775168,
+                "max": 50.429951,
+                "p99": 25.690111
+              },
+              "requestsPerSecAvg": 25694.4,
+              "latencyAvgMs": 1.38,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3082854.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 256921,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 26669.591516283825,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 22341.80984295467,
+          "requestsPerSecMax": 27149.350515358878,
+          "cvPercent": 8.51661386558868,
+          "latencyAvgMs": 1.36,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 99.29536093764273,
+          "serverOneCorePercent": 98.65410427323205,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 766044,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 273010,
+              "wallRequestsPerSecond": 27149.350515358878,
+              "durationMs": 10055.857499999984,
+              "clientOneCorePercent": 99.29536093764273,
+              "serverOneCorePercent": 98.65410427323205,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.28921964227642,
+                "max": 24.068095,
+                "p99": 22.249471
+              },
+              "requestsPerSecAvg": 27304,
+              "latencyAvgMs": 1.36,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4735385.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 273010,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 224908,
+              "wallRequestsPerSecond": 22341.80984295467,
+              "durationMs": 10066.686699999962,
+              "clientOneCorePercent": 93.74484655413022,
+              "serverOneCorePercent": 92.95481650015034,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 21.15490277966102,
+                "max": 65.044479,
+                "p99": 39.878655
+              },
+              "requestsPerSecAvg": 22489.6,
+              "latencyAvgMs": 1.68,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 3900416,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 224908,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 268126,
+              "wallRequestsPerSecond": 26669.591516283825,
+              "durationMs": 10053.62229999993,
+              "clientOneCorePercent": 100.56077002216475,
+              "serverOneCorePercent": 99.44957840738024,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.51281846406571,
+                "max": 22.396927,
+                "p99": 22.118399
+              },
+              "requestsPerSecAvg": 26811.2,
+              "latencyAvgMs": 1.33,
+              "latencyP99Ms": 2,
+              "throughputAvgBytes": 4650598.41,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 268126,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 25703.75275848337,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 22289.301006677473,
+          "requestsPerSecMax": 26052.60161456686,
+          "cvPercent": 6.878713687842667,
+          "latencyAvgMs": 1.46,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 97.24008050795506,
+          "serverOneCorePercent": 97.29947453992594,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 767472,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 286782,
+              "wallRequestsPerSecond": 26052.60161456686,
+              "durationMs": 11007.80660000001,
+              "clientOneCorePercent": 97.24008050795506,
+              "serverOneCorePercent": 97.64332077540317,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.0218758540146,
+                "max": 23.003135,
+                "p99": 21.168127
+              },
+              "requestsPerSecAvg": 26073.46,
+              "latencyAvgMs": 1.46,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4692712.73,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 286782,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 223171,
+              "wallRequestsPerSecond": 22289.301006677473,
+              "durationMs": 10012.471900000004,
+              "clientOneCorePercent": 96.28990818940521,
+              "serverOneCorePercent": 94.07886159324794,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.591090276288657,
+                "max": 71.434239,
+                "p99": 30.408703
+              },
+              "requestsPerSecAvg": 22320,
+              "latencyAvgMs": 1.71,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 4017152,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 223171,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 257519,
+              "wallRequestsPerSecond": 25703.75275848337,
+              "durationMs": 10018.731599999825,
+              "clientOneCorePercent": 98.87479169518997,
+              "serverOneCorePercent": 97.29947453992594,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.318512488798373,
+                "max": 48.168959,
+                "p99": 22.855679
+              },
+              "requestsPerSecAvg": 25750.4,
+              "latencyAvgMs": 1.41,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4635955.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 257519,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/hono-round3-post.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "nestjs",
+      "label": "NestJS (Express adapter) / Node",
+      "version": {
+        "nestjs": "12.2.0",
+        "adapter": "@nestjs/platform-express@12.2.0"
+      },
+      "runtime": "Node 24.21.0",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 16579.838045103334,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 14218.19246902677,
+          "requestsPerSecMax": 17488.713830453296,
+          "cvPercent": 8.563804910124492,
+          "latencyAvgMs": 2.42,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 86.16852929080477,
+          "serverOneCorePercent": 99.62348878642223,
+          "clientWarningRuns": 2,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 531499,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 156503,
+              "wallRequestsPerSecond": 14218.19246902677,
+              "durationMs": 11007.235999999975,
+              "clientOneCorePercent": 77.36728820931992,
+              "serverOneCorePercent": 91.96028427417015,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.263773520295203,
+                "max": 36.208639,
+                "p99": 29.327359
+              },
+              "requestsPerSecAvg": 14230.19,
+              "latencyAvgMs": 2.91,
+              "latencyP99Ms": 12,
+              "throughputAvgBytes": 2575080.73,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 156503,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 192507,
+              "wallRequestsPerSecond": 17488.713830453296,
+              "durationMs": 11007.498999999953,
+              "clientOneCorePercent": 86.16852929080477,
+              "serverOneCorePercent": 99.62348878642223,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 19.999716021857925,
+                "max": 20.381695,
+                "p99": 20.135935
+              },
+              "requestsPerSecAvg": 17500.37,
+              "latencyAvgMs": 2.22,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3167418.19,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 192507,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 182489,
+              "wallRequestsPerSecond": 16579.838045103334,
+              "durationMs": 11006.681699999841,
+              "clientOneCorePercent": 87.86481033607195,
+              "serverOneCorePercent": 100.19913761167183,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.00043226229508,
+                "max": 20.234239,
+                "p99": 20.119551
+              },
+              "requestsPerSecAvg": 16592,
+              "latencyAvgMs": 2.42,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3003019.64,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 182489,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round3-hello.json"
+            }
+          ]
+        },
+        "user": {
+          "requestsPerSecAvg": 15249.987291178175,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 14507.158233877079,
+          "requestsPerSecMax": 16572.737860754347,
+          "cvPercent": 5.531693619215128,
+          "latencyAvgMs": 2.74,
+          "latencyP99Ms": 9,
+          "clientOneCorePercent": 82.5062800744049,
+          "serverOneCorePercent": 97.44624484070475,
+          "clientWarningRuns": 1,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 494890,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 159678,
+              "wallRequestsPerSecond": 14507.158233877079,
+              "durationMs": 11006.842100000009,
+              "clientOneCorePercent": 80.35002155613728,
+              "serverOneCorePercent": 97.36134938633874,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.03990423357664,
+                "max": 24.805375,
+                "p99": 22.085631
+              },
+              "requestsPerSecAvg": 14516.37,
+              "latencyAvgMs": 2.94,
+              "latencyP99Ms": 10,
+              "throughputAvgBytes": 2641780.37,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 159678,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 182428,
+              "wallRequestsPerSecond": 16572.737860754347,
+              "durationMs": 11007.71649999998,
+              "clientOneCorePercent": 87.58401435938158,
+              "serverOneCorePercent": 99.62115534111392,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.000014455373407,
+                "max": 20.332543,
+                "p99": 20.119551
+              },
+              "requestsPerSecAvg": 16585.1,
+              "latencyAvgMs": 2.37,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3018286.55,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 182428,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 152784,
+              "wallRequestsPerSecond": 15249.987291178175,
+              "durationMs": 10018.631300000008,
+              "clientOneCorePercent": 82.5062800744049,
+              "serverOneCorePercent": 97.44624484070475,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.034424289156625,
+                "max": 34.603007,
+                "p99": 20.807679
+              },
+              "requestsPerSecAvg": 15278.8,
+              "latencyAvgMs": 2.74,
+              "latencyP99Ms": 9,
+              "throughputAvgBytes": 2780569.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 152784,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 5304.7972516404725,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 4361.054472332993,
+          "requestsPerSecMax": 5768.027079839847,
+          "cvPercent": 11.379907133187068,
+          "latencyAvgMs": 8.89,
+          "latencyP99Ms": 22,
+          "clientOneCorePercent": 37.87525551663226,
+          "serverOneCorePercent": 98.60818159297907,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 166257,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 43869,
+              "wallRequestsPerSecond": 4361.054472332993,
+              "durationMs": 10059.264399999985,
+              "clientOneCorePercent": 33.551161057065016,
+              "serverOneCorePercent": 96.20448718107237,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.272142539553755,
+                "max": 47.808511,
+                "p99": 27.541503
+              },
+              "requestsPerSecAvg": 4387.11,
+              "latencyAvgMs": 10.92,
+              "latencyP99Ms": 40,
+              "throughputAvgBytes": 1032908.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 43869,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 58643,
+              "wallRequestsPerSecond": 5304.7972516404725,
+              "durationMs": 11054.710900000005,
+              "clientOneCorePercent": 37.87525551663226,
+              "serverOneCorePercent": 99.85140245710195,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.00565484881603,
+                "max": 22.626303,
+                "p99": 20.479999
+              },
+              "requestsPerSecAvg": 5331.73,
+              "latencyAvgMs": 8.89,
+              "latencyP99Ms": 22,
+              "throughputAvgBytes": 1254981.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 58643,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 63745,
+              "wallRequestsPerSecond": 5768.027079839847,
+              "durationMs": 11051.439099999843,
+              "clientOneCorePercent": 43.83139567769114,
+              "serverOneCorePercent": 98.60818159297907,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.003804561020036,
+                "max": 22.626303,
+                "p99": 20.414463
+              },
+              "requestsPerSecAvg": 5795.1,
+              "latencyAvgMs": 8.14,
+              "latencyP99Ms": 14,
+              "throughputAvgBytes": 1364293.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 63745,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 11666.389284810202,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 10512.405775138734,
+          "requestsPerSecMax": 11695.1969284425,
+          "cvPercent": 4.87904068100847,
+          "latencyAvgMs": 3.71,
+          "latencyP99Ms": 8,
+          "clientOneCorePercent": 69.68162997321544,
+          "serverOneCorePercent": 99.02332817460473,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 372925,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 115733,
+              "wallRequestsPerSecond": 10512.405775138734,
+              "durationMs": 11009.183100000024,
+              "clientOneCorePercent": 62.30253360033575,
+              "serverOneCorePercent": 96.47040615257654,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.083998420475318,
+                "max": 37.650431,
+                "p99": 22.560767
+              },
+              "requestsPerSecAvg": 10522.73,
+              "latencyAvgMs": 4.34,
+              "latencyP99Ms": 13,
+              "throughputAvgBytes": 2546176,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 115733,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 128765,
+              "wallRequestsPerSecond": 11695.1969284425,
+              "durationMs": 11010.075399999972,
+              "clientOneCorePercent": 69.68162997321544,
+              "serverOneCorePercent": 99.02332817460473,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.018258218978104,
+                "max": 26.198015,
+                "p99": 20.430847
+              },
+              "requestsPerSecAvg": 11705.82,
+              "latencyAvgMs": 3.68,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2832849.46,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 128765,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 128427,
+              "wallRequestsPerSecond": 11666.389284810202,
+              "durationMs": 11008.290299999993,
+              "clientOneCorePercent": 69.6838454560015,
+              "serverOneCorePercent": 99.73163075289845,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.00183489981785,
+                "max": 21.184511,
+                "p99": 20.201471
+              },
+              "requestsPerSecAvg": 11674.55,
+              "latencyAvgMs": 3.71,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2825216,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 128427,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/nestjs-round3-post.json"
+            }
+          ]
         }
       }
     },
     {
       "key": "thunder",
-      "label": "Thunder (Deno)",
-      "version": "github:Huruf-Tech/thunder",
+      "label": "Thunder / Deno",
+      "version": {},
+      "runtime": "Deno 2.9.7",
       "endpoints": {
-        "users-post": {
-          "requestsPerSecAvg": 22283.2,
-          "requestsPerSecMax": 23553,
-          "latencyAvgMs": 1.64,
-          "latencyP99Ms": 4,
-          "throughputAvgMBs": 4.377,
-          "errors": 0,
-          "timeouts": 0,
-          "totalRequests": 238615
-        },
         "hello": {
-          "requestsPerSecAvg": 25489.6,
-          "requestsPerSecMax": 28630,
-          "latencyAvgMs": 1.47,
+          "requestsPerSecAvg": 27890.86321185888,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 23563.69177533887,
+          "requestsPerSecMax": 28229.559319061445,
+          "cvPercent": 7.997270600766983,
+          "latencyAvgMs": 1.27,
           "latencyP99Ms": 3,
-          "throughputAvgMBs": 2.893,
+          "clientOneCorePercent": 98.94032178676653,
+          "serverOneCorePercent": 98.7758456097682,
+          "clientWarningRuns": 3,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 257674
+          "totalRequests": 797742,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 235949,
+              "wallRequestsPerSecond": 23563.69177533887,
+              "durationMs": 10013.244200000016,
+              "clientOneCorePercent": 93.93558982612234,
+              "serverOneCorePercent": 92.83435693605003,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.91991211740042,
+                "max": 43.679743,
+                "p99": 27.738111
+              },
+              "requestsPerSecAvg": 23595.2,
+              "latencyAvgMs": 1.61,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 2807603.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 235949,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 279246,
+              "wallRequestsPerSecond": 27890.86321185888,
+              "durationMs": 10012.09600000002,
+              "clientOneCorePercent": 98.94032178676653,
+              "serverOneCorePercent": 98.7758456097682,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.482304525667352,
+                "max": 24.723455,
+                "p99": 22.478847
+              },
+              "requestsPerSecAvg": 27926.4,
+              "latencyAvgMs": 1.27,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 3323084.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 279246,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 282547,
+              "wallRequestsPerSecond": 28229.559319061445,
+              "durationMs": 10008.905800000066,
+              "clientOneCorePercent": 100.55045177865429,
+              "serverOneCorePercent": 98.80712103750454,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.458848524590163,
+                "max": 23.035903,
+                "p99": 22.233087
+              },
+              "requestsPerSecAvg": 28256,
+              "latencyAvgMs": 1.22,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 3361792,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 282547,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round3-hello.json"
+            }
+          ]
         },
-        "users-get": {
-          "requestsPerSecAvg": 25350.4,
-          "requestsPerSecMax": 27310,
-          "latencyAvgMs": 1.48,
+        "user": {
+          "requestsPerSecAvg": 24920.135676793052,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 17380.96036181914,
+          "requestsPerSecMax": 26574.026702688374,
+          "cvPercent": 17.428098135174974,
+          "latencyAvgMs": 1.45,
           "latencyP99Ms": 4,
-          "throughputAvgMBs": 2.902,
+          "clientOneCorePercent": 97.28635436585955,
+          "serverOneCorePercent": 98.52954310319294,
+          "clientWarningRuns": 3,
           "errors": 0,
           "timeouts": 0,
-          "totalRequests": 235071
+          "totalRequests": 690120,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 174330,
+              "wallRequestsPerSecond": 17380.96036181914,
+              "durationMs": 10029.940599999973,
+              "clientOneCorePercent": 92.6924731737696,
+              "serverOneCorePercent": 91.73682287461618,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 21.163858440677966,
+                "max": 70.778879,
+                "p99": 32.014335
+              },
+              "requestsPerSecAvg": 17434.8,
+              "latencyAvgMs": 2.39,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2091878.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 174330,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 249723,
+              "wallRequestsPerSecond": 24920.135676793052,
+              "durationMs": 10020.932600000058,
+              "clientOneCorePercent": 97.28635436585955,
+              "serverOneCorePercent": 98.52954310319294,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.570686284536084,
+                "max": 24.887295,
+                "p99": 23.298047
+              },
+              "requestsPerSecAvg": 24972.8,
+              "latencyAvgMs": 1.45,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 2996838.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 249723,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 266067,
+              "wallRequestsPerSecond": 26574.026702688374,
+              "durationMs": 10012.295200000051,
+              "clientOneCorePercent": 99.3977884311676,
+              "serverOneCorePercent": 100.79332324574554,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.441960918032787,
+                "max": 22.495231,
+                "p99": 22.249471
+              },
+              "requestsPerSecAvg": 26608,
+              "latencyAvgMs": 1.31,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 3192832,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 266067,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 19136.421387424027,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 17445.05527814347,
+          "requestsPerSecMax": 20279.548574525168,
+          "cvPercent": 6.14323977785709,
+          "latencyAvgMs": 2.16,
+          "latencyP99Ms": 5,
+          "clientOneCorePercent": 83.47073213957495,
+          "serverOneCorePercent": 98.93024627064314,
+          "clientWarningRuns": 0,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 608218,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 192804,
+              "wallRequestsPerSecond": 17445.05527814347,
+              "durationMs": 11052.071600000025,
+              "clientOneCorePercent": 79.73165863311978,
+              "serverOneCorePercent": 96.68571116732902,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.03852893430657,
+                "max": 26.230783,
+                "p99": 22.151167
+              },
+              "requestsPerSecAvg": 17529.1,
+              "latencyAvgMs": 2.4,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 3039883.64,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 192804,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 211527,
+              "wallRequestsPerSecond": 19136.421387424027,
+              "durationMs": 11053.634100000025,
+              "clientOneCorePercent": 84.53328484973082,
+              "serverOneCorePercent": 98.93024627064314,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.024237781021895,
+                "max": 23.199743,
+                "p99": 21.676031
+              },
+              "requestsPerSecAvg": 19229.82,
+              "latencyAvgMs": 2.16,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3334981.82,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 211527,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 203887,
+              "wallRequestsPerSecond": 20279.548574525168,
+              "durationMs": 10053.82340000011,
+              "clientOneCorePercent": 83.47073213957495,
+              "serverOneCorePercent": 101.63420744884264,
+              "clientCeilingSuspected": false,
+              "eventLoopDelayMs": {
+                "mean": 20.002385058116232,
+                "max": 21.397503,
+                "p99": 20.201471
+              },
+              "requestsPerSecAvg": 20388.8,
+              "latencyAvgMs": 2.03,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3536281.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 203887,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 25683.06040715265,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 24242.393119290562,
+          "requestsPerSecMax": 26240.48109332142,
+          "cvPercent": 3.3159025530813055,
+          "latencyAvgMs": 1.35,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 93.11941124548188,
+          "serverOneCorePercent": 96.51368147518392,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 814217,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 242645,
+              "wallRequestsPerSecond": 24242.393119290562,
+              "durationMs": 10009.11910000001,
+              "clientOneCorePercent": 92.09601672139149,
+              "serverOneCorePercent": 95.2053949763776,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.122657032258065,
+                "max": 42.237951,
+                "p99": 21.479423
+              },
+              "requestsPerSecAvg": 24264,
+              "latencyAvgMs": 1.49,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 4367667.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 242645,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 288869,
+              "wallRequestsPerSecond": 26240.48109332142,
+              "durationMs": 11008.52529999998,
+              "clientOneCorePercent": 94.2542231337745,
+              "serverOneCorePercent": 98.34216346601887,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.032788554744528,
+                "max": 22.167551,
+                "p99": 21.200895
+              },
+              "requestsPerSecAvg": 26262.55,
+              "latencyAvgMs": 1.32,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4726970.19,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 288869,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 282703,
+              "wallRequestsPerSecond": 25683.06040715265,
+              "durationMs": 11007.371999999974,
+              "clientOneCorePercent": 93.11941124548188,
+              "serverOneCorePercent": 96.51368147518392,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.053177330895796,
+                "max": 38.273023,
+                "p99": 21.315583
+              },
+              "requestsPerSecAvg": 25701.1,
+              "latencyAvgMs": 1.35,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4626059.64,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 282703,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/thunder-round3-post.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "deno",
+      "label": "Raw Deno.serve (manual routes)",
+      "version": {},
+      "runtime": "Deno 2.9.7",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 27682.236310787615,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 27350.779368206426,
+          "requestsPerSecMax": 30207.05406888966,
+          "cvPercent": 4.4892041949300445,
+          "latencyAvgMs": 1.25,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 97.20281793660975,
+          "serverOneCorePercent": 93.5808378733909,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 853884,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 274344,
+              "wallRequestsPerSecond": 27350.779368206426,
+              "durationMs": 10030.573399999994,
+              "clientOneCorePercent": 97.20281793660975,
+              "serverOneCorePercent": 93.5808378733909,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.62054769484536,
+                "max": 39.616511,
+                "p99": 23.117823
+              },
+              "requestsPerSecAvg": 27435.2,
+              "latencyAvgMs": 1.3,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3264716.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 274344,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 302441,
+              "wallRequestsPerSecond": 30207.05406888966,
+              "durationMs": 10012.264000000083,
+              "clientOneCorePercent": 97.37058471490482,
+              "serverOneCorePercent": 96.4362593025115,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.556143373195876,
+                "max": 44.335103,
+                "p99": 22.593535
+              },
+              "requestsPerSecAvg": 30244.8,
+              "latencyAvgMs": 1.14,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 3598950.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 302441,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 277099,
+              "wallRequestsPerSecond": 27682.236310787615,
+              "durationMs": 10009.993299999973,
+              "clientOneCorePercent": 97.08298206353471,
+              "serverOneCorePercent": 92.38964887948185,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.868794376569035,
+                "max": 51.707903,
+                "p99": 32.276479
+              },
+              "requestsPerSecAvg": 27710.4,
+              "latencyAvgMs": 1.25,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3297075.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 277099,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round3-hello.json"
+            }
+          ]
+        },
+        "user": {
+          "requestsPerSecAvg": 27750.05058194737,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 26417.99910967173,
+          "requestsPerSecMax": 31152.53844735653,
+          "cvPercent": 7.009520538185428,
+          "latencyAvgMs": 1.27,
+          "latencyP99Ms": 5,
+          "clientOneCorePercent": 97.36456946352978,
+          "serverOneCorePercent": 95.16411451892998,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 854396,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 264587,
+              "wallRequestsPerSecond": 26417.99910967173,
+              "durationMs": 10015.406499999983,
+              "clientOneCorePercent": 95.632663536922,
+              "serverOneCorePercent": 90.77849597780587,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.924360184486375,
+                "max": 63.799295,
+                "p99": 28.540927
+              },
+              "requestsPerSecAvg": 26460.8,
+              "latencyAvgMs": 1.35,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 3175219.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 264587,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 277915,
+              "wallRequestsPerSecond": 27750.05058194737,
+              "durationMs": 10014.936699999962,
+              "clientOneCorePercent": 97.36456946352978,
+              "serverOneCorePercent": 95.16411451892998,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.695082489626557,
+                "max": 51.937279,
+                "p99": 26.083327
+              },
+              "requestsPerSecAvg": 27792,
+              "latencyAvgMs": 1.27,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3335372.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 277915,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 311894,
+              "wallRequestsPerSecond": 31152.53844735653,
+              "durationMs": 10011.832600000082,
+              "clientOneCorePercent": 100.82070289509153,
+              "serverOneCorePercent": 98.93043180277222,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.441423737704916,
+                "max": 22.609919,
+                "p99": 22.020095
+              },
+              "requestsPerSecAvg": 31190.4,
+              "latencyAvgMs": 1.06,
+              "latencyP99Ms": 2,
+              "throughputAvgBytes": 3742515.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 311894,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 29471.5697991441,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 25475.82473332856,
+          "requestsPerSecMax": 29864.964710316086,
+          "cvPercent": 7.013781345528653,
+          "latencyAvgMs": 1.18,
+          "latencyP99Ms": 3,
+          "clientOneCorePercent": 98.50290988254496,
+          "serverOneCorePercent": 97.17178156896198,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 853659,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 296598,
+              "wallRequestsPerSecond": 29471.5697991441,
+              "durationMs": 10063.868399999978,
+              "clientOneCorePercent": 100.29940375611453,
+              "serverOneCorePercent": 97.17178156896198,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.45267095081967,
+                "max": 24.166399,
+                "p99": 22.609919
+              },
+              "requestsPerSecAvg": 29657.6,
+              "latencyAvgMs": 1.18,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 5143756.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 296598,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 256692,
+              "wallRequestsPerSecond": 25475.82473332856,
+              "durationMs": 10075.905400000047,
+              "clientOneCorePercent": 94.12553635130352,
+              "serverOneCorePercent": 90.85561278806443,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.94120788259958,
+                "max": 43.384831,
+                "p99": 27.787263
+              },
+              "requestsPerSecAvg": 25668.8,
+              "latencyAvgMs": 1.42,
+              "latencyP99Ms": 7,
+              "throughputAvgBytes": 4452761.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 256692,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 300369,
+              "wallRequestsPerSecond": 29864.964710316086,
+              "durationMs": 10057.570899999933,
+              "clientOneCorePercent": 98.50290988254496,
+              "serverOneCorePercent": 97.3950274813138,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.513356747433264,
+                "max": 30.162943,
+                "p99": 23.330815
+              },
+              "requestsPerSecAvg": 30035.2,
+              "latencyAvgMs": 1.13,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 5209702.41,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 300369,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 24255.90126161188,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 22069.23097728939,
+          "requestsPerSecMax": 24921.216228458707,
+          "cvPercent": 5.129888899389796,
+          "latencyAvgMs": 1.49,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 97.54981066037219,
+          "serverOneCorePercent": 97.21694667757342,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 713401,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 221038,
+              "wallRequestsPerSecond": 22069.23097728939,
+              "durationMs": 10015.663900000043,
+              "clientOneCorePercent": 95.6302058019335,
+              "serverOneCorePercent": 95.46508406727384,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.943268763102726,
+                "max": 53.870591,
+                "p99": 31.457279
+              },
+              "requestsPerSecAvg": 22105.6,
+              "latencyAvgMs": 1.71,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 3979161.6,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 221038,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 242833,
+              "wallRequestsPerSecond": 24255.90126161188,
+              "durationMs": 10011.295700000017,
+              "clientOneCorePercent": 97.54981066037219,
+              "serverOneCorePercent": 97.21694667757342,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.688029211618257,
+                "max": 43.646975,
+                "p99": 26.525695
+              },
+              "requestsPerSecAvg": 24281.6,
+              "latencyAvgMs": 1.49,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4371148.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 242833,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 249530,
+              "wallRequestsPerSecond": 24921.216228458707,
+              "durationMs": 10012.753700000001,
+              "clientOneCorePercent": 98.30462523012025,
+              "serverOneCorePercent": 97.35323428235078,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.66936579710145,
+                "max": 34.078719,
+                "p99": 24.510463
+              },
+              "requestsPerSecAvg": 24952,
+              "latencyAvgMs": 1.42,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4491366.41,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 249530,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-round3-post.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "key": "deno-control",
+      "label": "Identical raw Deno control",
+      "version": {},
+      "runtime": "Deno 2.9.7",
+      "endpoints": {
+        "hello": {
+          "requestsPerSecAvg": 28257.855459663962,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 26242.488699038702,
+          "requestsPerSecMax": 29311.235154301412,
+          "cvPercent": 4.557236268539441,
+          "latencyAvgMs": 1.25,
+          "latencyP99Ms": 5,
+          "clientOneCorePercent": 97.50939576314974,
+          "serverOneCorePercent": 93.12177121122872,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 839373,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 283015,
+              "wallRequestsPerSecond": 28257.855459663962,
+              "durationMs": 10015.445100000012,
+              "clientOneCorePercent": 97.50939576314974,
+              "serverOneCorePercent": 93.12031727992837,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.7003512033195,
+                "max": 48.005119,
+                "p99": 27.131903
+              },
+              "requestsPerSecAvg": 28300.8,
+              "latencyAvgMs": 1.25,
+              "latencyP99Ms": 5,
+              "throughputAvgBytes": 3367731.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 283015,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round1-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 262831,
+              "wallRequestsPerSecond": 26242.488699038702,
+              "durationMs": 10015.475399999996,
+              "clientOneCorePercent": 96.5605686575797,
+              "serverOneCorePercent": 93.12177121122872,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.89502698532495,
+                "max": 47.874047,
+                "p99": 26.378239
+              },
+              "requestsPerSecAvg": 26283.2,
+              "latencyAvgMs": 1.35,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 3128115.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 262831,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round2-hello.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 293527,
+              "wallRequestsPerSecond": 29311.235154301412,
+              "durationMs": 10014.146399999969,
+              "clientOneCorePercent": 98.93004959464174,
+              "serverOneCorePercent": 96.25136479243294,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.505787137577002,
+                "max": 25.673727,
+                "p99": 22.691839
+              },
+              "requestsPerSecAvg": 29356.8,
+              "latencyAvgMs": 1.15,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 3492864,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 293527,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round3-hello.json"
+            }
+          ]
+        },
+        "user": {
+          "requestsPerSecAvg": 27571.87130291731,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 22907.70620664136,
+          "requestsPerSecMax": 28072.57192946911,
+          "cvPercent": 8.882220721975997,
+          "latencyAvgMs": 1.27,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 96.57575831041821,
+          "serverOneCorePercent": 94.15407770930899,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 787648,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 276724,
+              "wallRequestsPerSecond": 27571.87130291731,
+              "durationMs": 10036.460599999991,
+              "clientOneCorePercent": 97.92296698698752,
+              "serverOneCorePercent": 94.15407770930899,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.7881281995842,
+                "max": 53.116927,
+                "p99": 28.246015
+              },
+              "requestsPerSecAvg": 27673.6,
+              "latencyAvgMs": 1.27,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3320832,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 276724,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round1-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 229779,
+              "wallRequestsPerSecond": 22907.70620664136,
+              "durationMs": 10030.642000000109,
+              "clientOneCorePercent": 92.37693858478748,
+              "serverOneCorePercent": 86.60102087332804,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 21.51402418924731,
+                "max": 117.833727,
+                "p99": 32.047103
+              },
+              "requestsPerSecAvg": 22976.4,
+              "latencyAvgMs": 1.64,
+              "latencyP99Ms": 8,
+              "throughputAvgBytes": 2757683.2,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 229779,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round2-user.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 281145,
+              "wallRequestsPerSecond": 28072.57192946911,
+              "durationMs": 10014.935599999968,
+              "clientOneCorePercent": 96.57575831041821,
+              "serverOneCorePercent": 94.5259464389174,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.63327841322314,
+                "max": 50.593791,
+                "p99": 24.100863
+              },
+              "requestsPerSecAvg": 28116.8,
+              "latencyAvgMs": 1.22,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 3373670.4,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 281145,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round3-user.json"
+            }
+          ]
+        },
+        "deep": {
+          "requestsPerSecAvg": 28328.361854046987,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 26701.15007238581,
+          "requestsPerSecMax": 29949.33107833271,
+          "cvPercent": 4.681395199870369,
+          "latencyAvgMs": 1.22,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 98.93093854130353,
+          "serverOneCorePercent": 95.83577289764344,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 857474,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 301705,
+              "wallRequestsPerSecond": 29949.33107833271,
+              "durationMs": 10073.847699999984,
+              "clientOneCorePercent": 100.20004570845373,
+              "serverOneCorePercent": 95.83577289764344,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.591350518518517,
+                "max": 53.805055,
+                "p99": 25.133055
+              },
+              "requestsPerSecAvg": 30169.6,
+              "latencyAvgMs": 1.14,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 5232640,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 301705,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round1-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 284999,
+              "wallRequestsPerSecond": 28328.361854046987,
+              "durationMs": 10060.553500000038,
+              "clientOneCorePercent": 98.93093854130353,
+              "serverOneCorePercent": 96.59070970299743,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.553728,
+                "max": 28.753919,
+                "p99": 23.969791
+              },
+              "requestsPerSecAvg": 28500.8,
+              "latencyAvgMs": 1.22,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4943052.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 284999,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round2-deep.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 270770,
+              "wallRequestsPerSecond": 26701.15007238581,
+              "durationMs": 10140.761699999915,
+              "clientOneCorePercent": 95.2295329057982,
+              "serverOneCorePercent": 92.73913321861129,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.904936385744236,
+                "max": 54.591487,
+                "p99": 31.965183
+              },
+              "requestsPerSecAvg": 27080,
+              "latencyAvgMs": 1.33,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 4696166.41,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 270770,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round3-deep.json"
+            }
+          ]
+        },
+        "post": {
+          "requestsPerSecAvg": 24642.889667921547,
+          "statistic": "median completed responses / measured wall seconds",
+          "requestsPerSecMin": 22641.738016945892,
+          "requestsPerSecMax": 25622.784088350563,
+          "cvPercent": 5.104764714082941,
+          "latencyAvgMs": 1.45,
+          "latencyP99Ms": 4,
+          "clientOneCorePercent": 97.70291077059115,
+          "serverOneCorePercent": 97.07074179874834,
+          "clientWarningRuns": 3,
+          "errors": 0,
+          "timeouts": 0,
+          "totalRequests": 730013,
+          "samples": [
+            {
+              "valid": true,
+              "completedRequests": 256577,
+              "wallRequestsPerSecond": 25622.784088350563,
+              "durationMs": 10013.626900000032,
+              "clientOneCorePercent": 99.70413417340292,
+              "serverOneCorePercent": 97.9740402343397,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.482153133470227,
+                "max": 34.897919,
+                "p99": 23.543807
+              },
+              "requestsPerSecAvg": 25656,
+              "latencyAvgMs": 1.41,
+              "latencyP99Ms": 4,
+              "throughputAvgBytes": 4618342.41,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 256577,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round1-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 246699,
+              "wallRequestsPerSecond": 24642.889667921547,
+              "durationMs": 10010.960700000054,
+              "clientOneCorePercent": 97.70291077059115,
+              "serverOneCorePercent": 97.07074179874834,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.69824371784232,
+                "max": 46.956543,
+                "p99": 26.083327
+              },
+              "requestsPerSecAvg": 24672,
+              "latencyAvgMs": 1.45,
+              "latencyP99Ms": 3,
+              "throughputAvgBytes": 4440780.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 246699,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round2-post.json"
+            },
+            {
+              "valid": true,
+              "completedRequests": 226737,
+              "wallRequestsPerSecond": 22641.738016945892,
+              "durationMs": 10014.11639999994,
+              "clientOneCorePercent": 96.1243070831497,
+              "serverOneCorePercent": 95.78065401522673,
+              "clientCeilingSuspected": true,
+              "eventLoopDelayMs": {
+                "mean": 20.750438187110184,
+                "max": 41.385983,
+                "p99": 29.769727
+              },
+              "requestsPerSecAvg": 22673.6,
+              "latencyAvgMs": 1.64,
+              "latencyP99Ms": 6,
+              "throughputAvgBytes": 4081868.8,
+              "errors": 0,
+              "timeouts": 0,
+              "non2xx": 0,
+              "bodyValidation": {
+                "checkedResponses": 226737,
+                "wrongStatus": 0,
+                "wrongBody": 0
+              },
+              "raw": "raw/deno-control-round3-post.json"
+            }
+          ]
         }
       }
     }
+  ],
+  "controls": [
+    {
+      "workload": "hello",
+      "ratio": 1.020793809517912,
+      "driftPercent": 2.07938095179121,
+      "divergedOver10Percent": false
+    },
+    {
+      "workload": "user",
+      "ratio": 0.9935791367837732,
+      "driftPercent": 0.6420863216226813,
+      "divergedOver10Percent": false
+    },
+    {
+      "workload": "deep",
+      "ratio": 0.9612098048088936,
+      "driftPercent": 3.879019519110638,
+      "divergedOver10Percent": false
+    },
+    {
+      "workload": "post",
+      "ratio": 1.0159544022766174,
+      "driftPercent": 1.5954402276617374,
+      "divergedOver10Percent": false
+    }
+  ],
+  "audit": {
+    "passed": true,
+    "samples": 108,
+    "totalRequests": 22252810,
+    "clientWarningSamples": 68,
+    "serverLaunches": 27,
+    "preflightChecks": 1917,
+    "sourceUnchanged": true
+  },
+  "limitations": [
+    "Client and server share one developer machine; rates describe the measured HTTP stacks, including their runtimes.",
+    "An identical raw Deno control measures run-order and machine variation. Differences smaller than that drift are inconclusive.",
+    "Client CPU over 85% of one core is flagged as potentially load-generator-limited.",
+    "Per-run p99 values are summarized by their median; this is not a pooled latency percentile.",
+    "Codexa is a local generated build using JetRouter, not a published JSR release. Historical results use a different release and environment.",
+    "This is a 1,004-route workload without databases, authentication or network services. It does not establish production capacity or a universal framework ranking."
   ]
 }

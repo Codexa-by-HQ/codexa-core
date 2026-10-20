@@ -15,7 +15,7 @@
 		"backend",
 		"api",
 		"http",
-		"rou3",
+		"jetrouter",
 		"plugin-first",
 		"middleware",
 		"mongodb",
@@ -51,7 +51,7 @@
 		"./providers/ioredis": "./src/providers/ioredis.ts",
 		"./providers/mongodb": "./src/providers/mongodb.ts",
 		"./providers/qs": "./src/providers/qs.ts",
-		"./providers/rou3": "./src/providers/rou3.ts",
+		"./providers/jetrouter": "./src/providers/jetrouter.ts",
 		"./providers/ua-parser-js": "./src/providers/ua-parser-js.ts",
 		"./providers/noble-hashes": "./src/providers/noble-hashes.ts",
 
@@ -89,7 +89,7 @@
 		"format:check": "deno fmt --check",
 		"check": "deno check --no-lock mod.ts src/providers/mod.ts src/providers/*.ts src/lib/http/mod.ts src/lib/openapi/mod.ts src/lib/sdk/mod.ts src/config/mod.ts src/lib/bus/mod.ts src/lib/store/mod.ts src/lib/cache/mod.ts src/lib/storage/mod.ts src/utils/*.ts src/cli/main.ts src/cli/plugin.test.ts",
 		"test:cli": "deno test --allow-read --allow-write src/cli/plugin.test.ts",
-		"test": "deno test --unstable-kv --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts",
+		"test": "deno test --unstable-kv --allow-env --allow-read --allow-net --allow-sys tests/smoke.test.ts tests/jetrouter.test.ts",
 		"build": "deno run --allow-read --allow-write=dist --allow-env scripts/build.ts",
 		"js:release:prepare": {
 			"command": "deno run --allow-read --allow-write=../public scripts/export.ts",
@@ -113,7 +113,7 @@
 		"ioredis": "npm:ioredis@^6.0.0",
 		"mongodb": "npm:mongodb@^7.6.0",
 		"qs": "npm:qs@^6.16.0",
-		"rou3": "npm:rou3@^0.9.2",
+		"jetrouter": "npm:jetrouter@0.2.0",
 		"ua-parser-js": "npm:ua-parser-js@^2.0.10",
 		"@noble/hashes": "npm:@noble/hashes@2.4.0"
 	},
