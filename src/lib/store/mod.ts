@@ -304,11 +304,7 @@ local requestedTtl = tonumber(ARGV[3])
 if requestedTtl and requestedTtl > 0 then
 	redis.call('SET', KEYS[1], ARGV[2], 'EX', requestedTtl)
 else
-	local remainingTtl = redis.call('PTTL', KEYS[1])
-	redis.call('SET', KEYS[1], ARGV[2])
-	if remainingTtl > 0 then
-		redis.call('PEXPIRE', KEYS[1], remainingTtl)
-	end
+	redis.call('SET', KEYS[1], ARGV[2], 'KEEPTTL')
 end
 
 return 1
